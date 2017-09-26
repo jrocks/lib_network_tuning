@@ -7,6 +7,7 @@ from libcpp.vector cimport vector
 from libcpp cimport bool
 
 
+
 cdef extern from "network.hpp":
     cdef cppclass Network:
         Network() except +
