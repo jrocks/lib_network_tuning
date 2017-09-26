@@ -1,6 +1,6 @@
 import sys, os
-sys.path.insert(0, '/data1/home/rocks/discrete_elasticity/')
-sys.path.insert(0, '/data1/home/rocks/discrete_elasticity/python_src/')
+sys.path.insert(0, '/data1/home/rocks/network_tuning/')
+sys.path.insert(0, '/data1/home/rocks/network_tuning/python_src/')
 
 import numpy as np
 import numpy.random as rand

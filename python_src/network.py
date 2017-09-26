@@ -1,5 +1,7 @@
 import numpy as np
 import numpy.linalg as la
+import numpy.random as rand
+import scipy.sparse as sparse
 from netCDF4 import Dataset, chartostring, stringtoarr
 import network
 import itertools as it
@@ -501,7 +503,7 @@ def create2DTriLattice(NX, NY, a):
         bvec -= np.rint(bvec / L) * L
         
         bvecij[DIM*b:DIM*b+DIM] = bvec
-        
+                
         
     print "NN", NN
     print "NB", NB 
@@ -524,6 +526,8 @@ def convertToFlowNetwork(network):
     node_pos = np.arange(0, 1, 1.0/NN)
     edgei = network.edgei
     edgej = network.edgej
+    
+    stretch_mod = network.stretch_mod * network.eq_length
 
     L = np.array([1.0])
     
@@ -540,12 +544,211 @@ def convertToFlowNetwork(network):
         
         
     fnw = Network(DIM, NN, node_pos, NE, edgei, edgej, DIM, L)
-    fnw.setStretchInt(bvecij, eq_length, np.ones(NE, float) / eq_length)
+    fnw.setStretchInt(bvecij, eq_length, stretch_mod / eq_length)
     
     return fnw
 
 
 
+
+
+def distortNetworkPos(net, sigma=1.0, seed=None):
+    
+    rand.seed(seed)
+    
+    DIM = net.DIM
+    NN = net.NN
+    node_pos = net.node_pos
+    NE = net.NE
+    edgei = net.edgei
+    edgej = net.edgej
+    NGDOF = net.NGDOF
+    L = net.L
+    
+    pert_node_pos = np.zeros(DIM*NN, float)
+    for i in range(NN):
+        pos = node_pos[DIM*i:DIM*i+DIM]
+        pert_node_pos[DIM*i:DIM*i+DIM] = rand.normal(loc=pos, scale=sigma, size=DIM)
+
+        
+    bvecij = np.zeros(DIM*NE, float)
+    eq_length = np.zeros(NE, float)
+    for b in range(NE):
+        bvec =  pert_node_pos[DIM*edgej[b]:DIM*edgej[b]+DIM]-pert_node_pos[DIM*edgei[b]:DIM*edgei[b]+DIM]
+        bvec -= np.rint(bvec / L) * L
+        bvecij[DIM*b:DIM*b+DIM] = bvec
+        
+        eq_length[b] = la.norm(bvec)
+        
+        
+        
+
+    pert_net = network.Network(DIM, NN, pert_node_pos, NE, edgei, edgej, NGDOF, L)
+    
+    pert_net.setStretchInt(bvecij, eq_length, np.ones(NE, float) / eq_length)
+    
+    
+    return pert_net
+
+def lower_DZ(net, DZ, seed=None, remove=False, local=False):
+    
+    rand.seed(seed)
+    
+    DIM = net.DIM
+    NN = net.NN
+    node_pos = net.node_pos
+    NE = net.NE
+    edgei = net.edgei
+    edgej = net.edgej
+    NGDOF = net.NGDOF
+    L = net.L
+    
+    Q = calcEqMat(net)
+        
+    K = np.ones(NE, float)
+    
+#     H = Q.dot(sparse.diags(K).dot(Q.transpose()))
+
+#     vals, vecs = sparse.linalg.eigsh(H, k=np.min([16, DIM*NN-1]), which='SA')
+#     print vals
+   
+
+    A = AdjList(NN)
+    A.add_edges(NE, edgei, edgej)
+         
+    DZ_current = 2.0 * NE / NN - 2.0*DIM + 2.0*NGDOF/NN
+            
+    print 0, "NE:", NE, "DZ:", DZ_current
+        
+    edge_list = range(NE)
+    rand.shuffle(edge_list)
+        
+    keep_set = set(range(NE))
+        
+    i = 0
+    while DZ_current > DZ:
+                
+        i += 1
+        
+        if len(edge_list) > 0:
+            b_test = edge_list.pop()
+        else:
+            break
+        
+        if local:
+            
+            A.remove_edge(edgei[b_test], edgej[b_test])
+            
+            is_constrained = True
+            for j in range(NN):
+                if A.get_degree(j) < DIM + 1:
+                    is_constrained = False
+                    
+            A.add_edge(edgei[b_test], edgej[b_test])
+            
+            if not is_constrained:
+                continue
+            
+        else:
+        
+            K_test = np.copy(K)
+            K_test[b_test] = 0.0
+
+            H_test = Q.dot(sparse.diags(K_test).dot(Q.transpose()))
+
+            vals, vecs = sparse.linalg.eigsh(H_test, k=np.min([16, DIM*NN-1]), which='SA')
+
+            print vals
+            
+            if vals[NGDOF] < np.sqrt(np.finfo(float).eps):
+                continue
+            
+            
+        A.remove_edge(edgei[b_test], edgej[b_test])
+            
+        keep_set.remove(b_test)
+        K[b_test] = 0.0
+
+        DZ_current = 2.0 * np.sum(K) / NN - 2.0*DIM + 2.0*NGDOF/NN
+       
+    
+    
+#     H = Q.dot(sparse.diags(K).dot(Q.transpose()))
+
+#     vals, vecs = sparse.linalg.eigsh(H, k=np.min([16, DIM*NN-1]), which='SA')
+#     print vals
+    
+    if remove:
+    
+        NE = len(keep_set)
+        edgei = edgei[list(keep_set)]
+        edgej = edgej[list(keep_set)]
+
+
+        bvecij = np.zeros(DIM*NE, float)
+        eq_length = np.zeros(NE, float)
+        for b in range(NE):
+            bvec =  node_pos[DIM*edgej[b]:DIM*edgej[b]+DIM]-node_pos[DIM*edgei[b]:DIM*edgei[b]+DIM]
+            bvec -= np.rint(bvec / L) * L
+            bvecij[DIM*b:DIM*b+DIM] = bvec
+
+            eq_length[b] = la.norm(bvec)
+
+        print i, "NE:", NE, "DZ:", DZ_current
+
+
+        low_net = network.Network(DIM, NN, node_pos, NE, edgei, edgej, NGDOF, L)
+
+        low_net.setStretchInt(bvecij, eq_length, np.ones(NE, float) / eq_length)
+
+        
+    else:
+        
+        bvecij = np.zeros(DIM*NE, float)
+        eq_length = np.zeros(NE, float)
+        for b in range(NE):
+            bvec =  node_pos[DIM*edgej[b]:DIM*edgej[b]+DIM]-node_pos[DIM*edgei[b]:DIM*edgei[b]+DIM]
+            bvec -= np.rint(bvec / L) * L
+            bvecij[DIM*b:DIM*b+DIM] = bvec
+
+            eq_length[b] = la.norm(bvec)
+
+        print i, "NE:", NE, "DZ:", DZ_current
+        
+        low_net = network.Network(DIM, NN, node_pos, NE, edgei, edgej, NGDOF, L)
+        
+        low_net.setStretchInt(bvecij, eq_length, K / eq_length)
+        
+    return low_net
+          
+        
+        
+def calcEqMat(net):
+    node_pos = net.node_pos
+    NN = net.NN
+
+    edgei = net.edgei
+    edgej = net.edgej
+    NE = net.NE
+    L = net.L
+
+    DIM = net.DIM
+
+    Q = np.zeros([DIM*NN, NE], float)
+
+    for i in range(NE):
+        posi = node_pos[DIM*edgei[i]:DIM*edgei[i]+DIM]
+        posj = node_pos[DIM*edgej[i]:DIM*edgej[i]+DIM]
+        bvec = posj - posi
+        bvec -= np.rint(bvec / L) * L
+        bvec /= la.norm(bvec)
+
+        Q[DIM*edgei[i]:DIM*edgei[i]+DIM, i] = -bvec
+        Q[DIM*edgej[i]:DIM*edgej[i]+DIM, i] = bvec
+
+    sQ = sparse.csc_matrix(Q)
+        
+    return sQ
 
 
 

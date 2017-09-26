@@ -20,6 +20,256 @@ def createGIF(iname, oname, show=True):
         data = open("{0}".format(oname), "rb").read()
         data = data.encode("base64")
         display(HTML(IMG_TAG.format(data)) ) 
+        
+        
+        
+        
+        
+gray = "#969696"
+blue = "#377eb8"
+red = "#e41a1c"
+
+
+def show_network(ax, net, disp=None, strain=None, styles={}):
+
+        
+    boxsize=0.5
+    padding=0.0
+    
+    edgei = np.copy(net.edgei)
+    edgej = np.copy(net.edgej)
+    node_pos = np.copy(net.node_pos)
+    DIM = net.DIM
+    NE = net.NE
+    NN = net.NN
+    L = np.copy(net.L)
+    center = 0.5 * np.ones(DIM, float)
+    
+    
+    if disp is None:
+        disp = np.zeros(DIM*NN, float)
+    
+    if strain is None:
+        strain = np.zeros([DIM, DIM], float)
+    else:
+        boxL = 0.5 + padding
+        corners = np.array([[-boxL, -boxL], 
+                            [boxL, -boxL], 
+                            [boxL, boxL], 
+                            [-boxL, boxL]])
+        corners[0] = def_tensor[0:2, 0:2].dot(corners[0])
+        corners[1] = def_tensor[0:2, 0:2].dot(corners[1])
+        corners[2] = def_tensor[0:2, 0:2].dot(corners[2])
+        corners[3] = def_tensor[0:2, 0:2].dot(corners[3])
+
+        ax.add_patch(mpatches.Polygon(corners, True, fill=False, lw=4.0))
+
+    patches = []
+
+
+    def_tensor = np.identity(DIM) + strain 
+
+
+
+    for i in range(NN):
+        node_pos[DIM*i:DIM*i+DIM] += padding * L
+    
+    L += 2.0 * padding * L
+    
+    edges = []
+    edge_index = []
+    
+    #change to showing 9 copies of networks
+
+    for i in range(NE):
+        posi = node_pos[DIM*edgei[i]:DIM*edgei[i]+DIM]+disp[DIM*edgei[i]:DIM*edgei[i]+DIM]
+        posj = node_pos[DIM*edgej[i]:DIM*edgej[i]+DIM]+disp[DIM*edgej[i]:DIM*edgej[i]+DIM]
+
+        posi /= L
+        posj /= L
+
+        bvec = posj - posi
+        bvec -= np.rint(bvec)
+
+        posi -= np.floor(posi)
+        posj -= np.floor(posj)
+
+        posi -= center
+        posj -= center
+        
+        
+        edges.append([tuple(posi),tuple(posi+bvec)])    
+        edge_index.append(i)
+        
+        edges.append([tuple(posi+np.array([1.0, 0.0])),tuple(posi+bvec+np.array([1.0, 0.0]))])    
+        edge_index.append(i)
+        
+        edges.append([tuple(posi+np.array([1.0, -1.0])),tuple(posi+bvec+np.array([1.0, -1.0]))])    
+        edge_index.append(i)
+        
+        edges.append([tuple(posi+np.array([0.0, -1.0])),tuple(posi+bvec+np.array([0.0, -1.0]))])    
+        edge_index.append(i)
+        
+        edges.append([tuple(posi+np.array([-1.0, -1.0])),tuple(posi+bvec+np.array([-1.0, -1.0]))])    
+        edge_index.append(i)
+        
+        edges.append([tuple(posi+np.array([-1.0, 0.0])),tuple(posi+bvec+np.array([-1.0, 0.0]))])    
+        edge_index.append(i)
+        
+        edges.append([tuple(posi+np.array([-1.0, 1.0])),tuple(posi+bvec+np.array([-1.0, 1.0]))])    
+        edge_index.append(i)
+        
+        edges.append([tuple(posi+np.array([0.0, 1.0])),tuple(posi+bvec+np.array([0.0, 1.0]))])    
+        edge_index.append(i)
+        
+        edges.append([tuple(posi+np.array([1.0, 1.0])),tuple(posi+bvec+np.array([1.0, 1.0]))])    
+        edge_index.append(i)
+
+
+    for i, b in enumerate(edges):
+        edges[i] = [def_tensor.dot(b[0])[0:2], def_tensor.dot(b[1])[0:2]]
+    
+    ls = []
+    colors = []
+    lw = []
+    
+    for i, b in enumerate(edge_index):
+        
+        if b in styles and 'color' in styles[b]:
+            colors.append(styles[b]['color'])
+        else:
+            colors.append(gray)
+            
+            
+        if b in styles and 'ls' in styles[b]:
+            ls.append(styles[b]['ls'])
+        else:
+            ls.append('solid')
+            
+        if b in styles and 'lw' in styles[b]:
+            lw.append(styles[b]['lw'])
+        else:
+            lw.append(2.0)
+                    
+    
+    lc = mc.LineCollection(edges, zorder=-1, linestyle=ls, lw=lw, alpha=0.8, color=colors)  
+    ax.add_collection(lc)
+    
+    ax.set_xlim(-boxsize, boxsize)
+    ax.set_ylim(-boxsize, boxsize)
+    
+    
+def show_nodes(ax, net, nodes, disp=None, strain=None, styles={}, marker='o'):
+    
+    
+    edgei = np.copy(net.edgei)
+    edgej = np.copy(net.edgej)
+    node_pos = np.copy(net.node_pos)
+    DIM = net.DIM
+    NE = net.NE
+    NN = net.NN
+    L = np.copy(net.L)
+    center = 0.5 * np.ones(DIM, float)
+    
+    if disp is None:
+        disp = np.zeros(DIM*NN, float)
+    
+    if strain is None:
+        strain = np.zeros([DIM, DIM], float)
+
+    def_tensor = np.identity(DIM) + strain 
+        
+    x1 = []
+    y1 = []
+
+    for i in range(len(nodes)):
+        
+        posi = node_pos[DIM*nodes[i]:DIM*nodes[i]+DIM]+disp[DIM*nodes[i]:DIM*nodes[i]+DIM]
+
+        posi /= L
+
+        posi -= np.floor(posi)
+
+        posi -= center
+
+        posi = def_tensor.dot(posi)
+
+        x1.append(posi[0])
+        y1.append(posi[1])
+
+    colors = []
+    sizes = []
+
+    for b in nodes:
+        
+        if b in styles and 'color' in styles[b]:
+            colors.append(styles[b]['color'])
+        else:
+            colors.append('k')
+            
+        if b in styles and 'size' in styles[b]:
+            sizes.append(styles[b]['size'])
+        else:
+            sizes.append(200)
+                        
+    ax.scatter(x1, y1, marker=marker , s=sizes, facecolor=colors, alpha=1.0)
+
+def show_vecs(ax, net, disp, strain=None):
+    
+    edgei = np.copy(net.edgei)
+    edgej = np.copy(net.edgej)
+    node_pos = np.copy(net.node_pos)
+    DIM = net.DIM
+    NE = net.NE
+    NN = net.NN
+    L = np.copy(net.L)
+    center = 0.5 * np.ones(DIM, float)
+        
+    if strain is None:
+        strain = np.zeros([DIM, DIM], float)
+
+    def_tensor = np.identity(DIM) + strain 
+    
+    X = np.zeros(NN, float)
+    Y = np.zeros(NN, float)
+    U = np.zeros(NN, float)
+    V = np.zeros(NN, float)
+    
+    for i in range(NN):
+        
+        pos = node_pos[DIM*i:DIM*i+DIM]
+
+        pos /= L
+
+        pos -= np.floor(pos)
+
+        pos -= center
+        
+        pos = def_tensor.dot(pos)
+        
+        u = disp[DIM*i:DIM*i+DIM]
+        u /= L
+        
+        X[i] = pos[0]
+        Y[i] = pos[1]
+        U[i] = u[0]
+        V[i] = u[1]
+        
+    ax.quiver(X, Y, U, V, units='xy', angles='xy', scale_units='xy', scale=1.0/2.0)
+   
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 
 def frame(network, disp, Gamma, K, pert, meas, label, boxsize=0.5, padding=0.0, save=False, show_removed=False, ostrain=[]):
 

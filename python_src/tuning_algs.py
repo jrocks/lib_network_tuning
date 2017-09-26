@@ -102,17 +102,6 @@ class Measure(object):
                               self.NOstress, self.ostress_bonds, self.measure_affine_strain, self.measure_affine_stress)
     
 
-# class IneqRatioChangeObjFunc(object):
-#     def __init__(self, Nterms, Ngrad, ratio_init, delta_ratio_target):
-        
-#         self.Nterms = Nterms
-#         self.Ngrad = Ngrad
-#         self.ratio_init = np.array(ratio_init)
-#         self.delta_ratio_target = np.array(delta_ratio_target)
-        
-#     def getCyObjFunc(self):
-#         return mns.CyIneqRatioChangeObjFunc(self.Nterms, self.Ngrad, self.ratio_init, self.delta_ratio_target)
-    
     
 class Update(object):
     def __init__(self):
@@ -127,6 +116,489 @@ class Update(object):
         
     def getCyUpdate(self):
         return mns.CyUpdate(self.NSM, self.sm_bonds, self.stretch_mod)
+    
+    
+    
+    
+    
+    
+    
+class TuneDiscLin(object):
+    def __init__(self, net, pert, meas, obj_func, K_max, K_disc, NDISC=1, NCONVERGE=1, fix_NE=False):
+        
+        self.net = net
+        self.pert = pert
+        self.meas = meas
+        
+        cypert = []
+        for p in pert:
+            cypert.append(p.getCyPert())
+            
+        cymeas = []
+        for m in meas:
+            cymeas.append(m.getCyMeas())
+        
+        self.solver = mns.CyLinSolver(net.getCyNetwork(), len(cypert), cypert, cymeas)
+                
+        self.obj_func = obj_func
+        
+        self.K_max = np.copy(K_max)
+        
+        self.K_disc = np.copy(K_disc)
+        
+        self.NDISC = NDISC
+        
+        self.NCONVERGE = NCONVERGE
+        self.fix_NE = fix_NE
+        
+        
+    def func(self, K):
+        
+        self.solver.setIntStrengths(K)
+        
+        meas = self.solver.solveMeas()
+        
+        return self.obj_func.objFunc(meas)
+    
+    def func_terms(self, K):
+        
+        self.solver.setIntStrengths(K)
+        
+        meas = self.solver.solveMeas()
+        
+        return self.obj_func.objFuncTerms(meas)
+      
+        
+        
+    def tune(self, verbose=True):
+                
+        #Set initial response ratio
+        K_curr = self.K_max * self.K_disc
+        self.solver.setIntStrengths(K_curr)
+        meas = self.solver.solveMeas()
+        
+        meas_init = meas
+        
+        # print meas_init
+        
+        self.obj_func.setRatioInit(meas)
+        
+        # Calculate initial response
+        obj_prev = self.func(K_curr)
+        obj_curr = obj_prev
+        
+        if verbose:
+            print "Initial objective function:", obj_prev        
+        
+        move_list = []
+        for b in range(self.net.NE):
+            move_list.append({'bond': b, 'disc': np.min([self.NDISC, self.K_disc[b]+1])})
+            move_list.append({'bond': b, 'disc': np.max([0, self.K_disc[b] - 1])})
+            
+        
+        up_list = []
+        for move in move_list:
+            up = Update()
+            up.setStretchMod(1, [move['bond']], [self.K_max[move['bond']] * move['disc'] / self.NDISC])
+            up_list.append(up.getCyUpdate())
+
+        self.solver.prepareUpdateList(up_list)
+        
+        
+        # tol = np.sqrt(np.finfo(float).eps)
+        # tol = 1e-10
+        tol = 1e-8
+        
+        rem_set = set()
+        
+        max_error = 0
+        
+        n_iter = 0
+        converge_count = 0
+        target_NE = np.sum(self.K_disc)
+        current_NE = np.sum(self.K_disc)
+        
+        bond_prev = -1
+        
+        while True:
+            
+            if obj_curr == 0.0:
+                break
+            
+            obj_list = []
+            valid_move_list = []
+            meas_list = []
+            
+            n_zero = 0
+
+            for i, move in enumerate(move_list):
+                    
+                    
+                bond = move['bond']
+                disc = move['disc']
+                
+                if self.fix_NE and current_NE != target_NE:
+                    if current_NE + disc - self.K_disc[bond] != target_NE:
+                        continue
+                
+                if self.K_disc[bond] == disc or bond == bond_prev:
+                    continue
+                    
+                bi = self.net.edgei[bond]
+                bj = self.net.edgej[bond]
+                
+                (condition, meas) = self.solver.solveMeasUpdate(i)
+                
+    
+                if condition < 0.0:
+                    n_zero += 1                    
+                    continue
+                    
+                obj = self.obj_func.objFunc(np.concatenate(meas))
+                    
+                # print move, obj
+                    
+                obj_list.append(obj)
+                valid_move_list.append(i)
+                meas_list.append(meas)
+            
+            
+            if verbose:
+                print "Removing", n_zero, "/", np.sum(self.K_disc), "/",self.net.NE, "bonds would create zero modes..."
+                        
+            if len(valid_move_list) == 0:
+                if verbose:
+                    print "No solution found."
+                break
+            
+                
+            args = np.argsort(obj_list)   
+            
+            min_list = []
+            for i in range(len(obj_list)):
+                if obj_list[args[i]] == 0.0:
+                    min_list.append(args[i])
+                else:
+                    break
+                   
+            if len(min_list) > 0:
+                rand.shuffle(min_list)
+                index = min_list[0]
+            else:
+                index = args[0]
+            
+            min_move = move_list[valid_move_list[index]]
+            obj_curr = obj_list[index]
+            
+            if verbose:
+                print min_move
+            
+            # print meas_list[index]
+            
+            
+                
+            if verbose:
+                print n_iter, "Objective function:", obj_curr, "Change:", obj_curr - obj_prev, "Percent:", (obj_curr - obj_prev) / np.abs(obj_prev)
+            
+            if (obj_curr - obj_prev) / np.abs(obj_prev) > -tol:
+                converge_count += 1
+                print "Steps Backwards", converge_count, "/", self.NCONVERGE
+                if converge_count >= self.NCONVERGE:
+                    if verbose:
+                        print "Stopped making progress."
+                    break
+            else:
+                obj_prev = obj_curr
+                converge_count = 0
+                
+            self.K_disc[min_move['bond']] = min_move['disc']
+            K_curr = self.K_max * self.K_disc / self.NDISC
+                
+            (error, meas) = self.solver.setUpdate(valid_move_list[index])                           
+                
+            if error > max_error:
+                max_error = error
+                        
+            bond = min_move['bond']              
+            bi = self.net.edgei[bond]
+            bj = self.net.edgej[bond]
+            
+            K_up = np.min([self.NDISC, min_move['disc']+1])
+            K_down = np.max([0, min_move['disc']-1])
+                            
+            replace1 = Update()
+            replace1.setStretchMod(1, [min_move['bond']], [self.K_max[min_move['bond']] * K_up / self.NDISC])
+            
+            replace2 = Update()
+            replace2.setStretchMod(1, [min_move['bond']], [self.K_max[min_move['bond']] * K_down / self.NDISC])
+            
+            move_list[2*min_move['bond']]['disc'] =  K_up
+            move_list[2*min_move['bond']+1]['disc'] =  K_down
+            
+            self.solver.replaceUpdates([2*min_move['bond'], 2*min_move['bond']+1], [replace1.getCyUpdate(), replace2.getCyUpdate()])
+            
+            current_NE = np.sum(self.K_disc)
+            
+            n_iter += 1
+            
+            bond_prev = bond
+            
+        obj = obj_prev
+        
+        
+        # evals = self.solver.getEigenvals()
+        # if verbose:   
+        #     print evals[0:6]
+                                
+        result = dict()
+        
+        self.solver.setIntStrengths(K_curr)
+        meas = self.solver.solveMeas()
+        obj_real = self.obj_func.objFunc(meas)
+        
+        res = self.obj_func.projMeas(meas)
+        if verbose:
+            print "Abs Obj Error:", obj - obj_real
+        
+        
+            print "Init Measure:", meas_init
+            print "Final Measure:", meas
+        meas_final = meas
+        
+        if verbose:
+            print "Rel Change:", (meas_final - meas_init) / meas_init
+            print "Abs Change:", meas_final - meas_init
+        
+        result['niter'] = n_iter
+        # result['min_eval'] = evals[3]
+        result['K'] = K_curr
+        result['K_disc'] = self.K_disc
+        result['NR'] = self.net.NE - np.sum(self.K_disc)
+        result['DZ_final'] = 2.0 * np.sum(self.K_disc) / self.net.NN - 2.0 * (self.net.DIM - 1.0 * self.net.DIM / self.net.NN)
+        result['obj_err'] = obj - obj_real
+        result['obj_func'] = obj
+        # result['obj_func_terms'] = obj_terms
+        result['max_error'] = max_error
+        result['condition'] = self.solver.getConditionNum()
+        result['obj_res'] = res
+        
+        if obj == 0.0:
+            result['success_flag'] = 0
+            result['result_msg'] = "Valid solution found."
+        else:
+            result['success_flag'] = 1
+            result['result_msg'] = "No valid solution found."
+        
+        return result
+    
+    
+    
+    
+    
+#     def tuneEdge(self):
+                
+#         #Set initial response ratio
+#         self.solver.setIntStrengths(self.K_init)
+        
+# #         (disp, strain) = self.solver.solveDOF()
+# #         disp = disp[0]
+        
+        
+# #         for b in range(self.nw.NE):
+# #             bi = self.nw.edgei[b]
+# #             bj = self.nw.edgej[b]
+# #             posi = self.nw.node_pos[self.nw.DIM*bi:self.nw.DIM*bi+self.nw.DIM]
+# #             posj = self.nw.node_pos[self.nw.DIM*bj:self.nw.DIM*bj+self.nw.DIM]
+# #             bvec = posj - posi
+# #             bvec -= np.round(bvec/self.nw.L)*self.nw.L
+            
+# #             l0 = la.norm(bvec)
+# #             bvec /= l0
+            
+# #             e = bvec.dot(disp[self.nw.DIM*bj:self.nw.DIM*bj+self.nw.DIM] - disp[self.nw.DIM*bi:self.nw.DIM*bi+self.nw.DIM])/l0
+            
+# #             print b, e
+        
+        
+#         meas = self.solver.solveMeas()
+        
+#         print "true init", meas
+        
+        
+#         meas =  np.concatenate(self.solver.initEdgeCalc())
+                
+#         print "init", meas
+                
+#         self.obj_func.setRatioInit(meas)
+
+#         # Calculate initial response
+#         K_curr = np.copy(self.K_init)
+#         obj_prev = self.obj_func.objFunc(meas)
+#         obj_curr = obj_prev
+        
+#         print "Initial objective function:", obj_prev        
+        
+#         valid_set = set(range(self.nw.NE))
+#         for b in self.pert[0].istrain_bonds:
+#             valid_set.remove(b)
+#         for b in self.meas[0].ostrain_bonds:
+#             valid_set.remove(b)        
+        
+        
+#         # tol = np.sqrt(np.finfo(float).eps)
+#         # tol = 1e-10
+#         tol = 1e-8        
+        
+#         max_error = 0
+        
+#         n_iter = 0
+#         while True:
+            
+#             obj_list = []
+#             valid_move_list = []
+#             meas_list = []
+            
+#             n_zero = 0
+            
+#             zero_set = set()
+#             for b in sorted(valid_set):
+                
+#                 (condition, meas) = self.solver.solveEdgeUpdate(b)
+    
+#                 if condition < 0.0:
+#                     print "Inverting Detected Zero", b
+#                     n_zero += 1
+#                     zero_set.add(b)
+                    
+#                     continue
+                    
+#                 obj = self.obj_func.objFunc(np.concatenate(meas))
+                    
+#                 # print b, meas, obj
+                    
+#                 obj_list.append(obj)
+#                 valid_move_list.append(b)
+#                 meas_list.append(np.concatenate(meas))
+            
+#             # print obj_list
+            
+#             # print zero_set
+            
+#             print "Removing", n_zero, "/", len(valid_set), "/", self.nw.NE, "bonds would create zero modes..."
+            
+#             if len(valid_move_list) == 0:
+#                 print "No solution found."
+#                 break
+            
+                
+#             args = np.argsort(obj_list)   
+            
+#             min_list = []
+#             for i in range(len(obj_list)):
+#                 if obj_list[args[i]] < tol:
+#                     min_list.append(args[i])
+#                 else:
+#                     break
+                   
+#             if len(min_list) > 0:
+#                 rand.shuffle(min_list)
+#                 index = min_list[0]
+#             else:
+#                 index = args[0]
+            
+#             bmin = valid_move_list[index]
+#             obj_min = obj_list[index]
+            
+#             print "Removing", bmin
+            
+#             print n_iter, "Objective function:", obj_min, "Change:", obj_min - obj_prev
+            
+#             if (obj_min - obj_prev) / np.abs(obj_prev) > -tol:
+#                 print "Stopped making progress."
+#                 break
+                         
+#             obj_curr = obj_min
+#             obj_prev = obj_curr
+            
+#             K_curr[bmin] = 0.0            
+            
+#             (error, meas) = self.solver.removeEdge(bmin)
+#             # obj = self.obj_func.objFunc(np.concatenate(meas))
+#             # print obj_min, obj
+            
+# #             print meas_list[index]
+            
+#             print meas
+            
+#             if error > max_error:
+#                 max_error = error
+            
+#             valid_set.remove(bmin)
+            
+#             if obj_curr < tol**2:
+#                 break
+            
+          
+            
+#             n_iter += 1
+            
+        
+        
+#         self.solver.setIntStrengths(K_curr)
+#         meas = self.solver.solveMeas()
+        
+#         obj = self.func(K_curr)
+        
+#         print "obj", obj
+#         print "meas", meas
+        
+        
+        
+#         evals = self.solver.getEigenvals()
+            
+#         print evals[0:6]
+                    
+#         result = dict()
+
+        
+#         result['min_eval'] = evals[3]
+#         result['K'] = K_curr
+#         result['obj_func'] = obj_curr
+#         # result['obj_func_terms'] = obj_terms
+#         result['error'] = max_error
+
+#         if obj_curr < tol:
+#             result['success_flag'] = 0
+#             result['result_msg'] = "Valid solution found."
+#         else:
+#             result['success_flag'] = 1
+#             result['result_msg'] = "No valid solution found."
+
+#         print "Result:"
+#         print result
+        
+#         return result
+    
+    
+    
+    
+    
+    
+    
+# class IneqRatioChangeObjFunc(object):
+#     def __init__(self, Nterms, Ngrad, ratio_init, delta_ratio_target):
+        
+#         self.Nterms = Nterms
+#         self.Ngrad = Ngrad
+#         self.ratio_init = np.array(ratio_init)
+#         self.delta_ratio_target = np.array(delta_ratio_target)
+        
+#     def getCyObjFunc(self):
+#         return mns.CyIneqRatioChangeObjFunc(self.Nterms, self.Ngrad, self.ratio_init, self.delta_ratio_target)
+       
+    
+    
+    
     
     
 class TuneContLin(object):
@@ -1161,516 +1633,7 @@ class TuneContLin(object):
         return result
         
     
-class TuneDiscLin(object):
-    def __init__(self, nw, pert, meas, obj_func, K_max, K_disc, NDISC=1):
-        
-        self.nw = nw
-        self.pert = pert
-        self.meas = meas
-        
-        cypert = []
-        for p in pert:
-            cypert.append(p.getCyPert())
-            
-        cymeas = []
-        for m in meas:
-            cymeas.append(m.getCyMeas())
-        
-        self.solver = mns.CyLinSolver(nw.getCyNetwork(), len(cypert), cypert, cymeas)
-                
-        self.obj_func = obj_func
-        
-        self.K_max = np.copy(K_max)
-        
-        self.K_disc = np.copy(K_disc)
-        
-        self.NDISC = NDISC
-        
-        
-    def func(self, K):
-        
-        self.solver.setIntStrengths(K)
-        
-        meas = self.solver.solveMeas()
-        
-        return self.obj_func.objFunc(meas)
-    
-    def func_terms(self, K):
-        
-        self.solver.setIntStrengths(K)
-        
-        meas = self.solver.solveMeas()
-        
-        return self.obj_func.objFuncTerms(meas)
-       
-#     def tuneEdge(self):
-                
-#         #Set initial response ratio
-#         self.solver.setIntStrengths(self.K_init)
-        
-# #         (disp, strain) = self.solver.solveDOF()
-# #         disp = disp[0]
-        
-        
-# #         for b in range(self.nw.NE):
-# #             bi = self.nw.edgei[b]
-# #             bj = self.nw.edgej[b]
-# #             posi = self.nw.node_pos[self.nw.DIM*bi:self.nw.DIM*bi+self.nw.DIM]
-# #             posj = self.nw.node_pos[self.nw.DIM*bj:self.nw.DIM*bj+self.nw.DIM]
-# #             bvec = posj - posi
-# #             bvec -= np.round(bvec/self.nw.L)*self.nw.L
-            
-# #             l0 = la.norm(bvec)
-# #             bvec /= l0
-            
-# #             e = bvec.dot(disp[self.nw.DIM*bj:self.nw.DIM*bj+self.nw.DIM] - disp[self.nw.DIM*bi:self.nw.DIM*bi+self.nw.DIM])/l0
-            
-# #             print b, e
-        
-        
-#         meas = self.solver.solveMeas()
-        
-#         print "true init", meas
-        
-        
-#         meas =  np.concatenate(self.solver.initEdgeCalc())
-                
-#         print "init", meas
-                
-#         self.obj_func.setRatioInit(meas)
 
-#         # Calculate initial response
-#         K_curr = np.copy(self.K_init)
-#         obj_prev = self.obj_func.objFunc(meas)
-#         obj_curr = obj_prev
-        
-#         print "Initial objective function:", obj_prev        
-        
-#         valid_set = set(range(self.nw.NE))
-#         for b in self.pert[0].istrain_bonds:
-#             valid_set.remove(b)
-#         for b in self.meas[0].ostrain_bonds:
-#             valid_set.remove(b)        
-        
-        
-#         # tol = np.sqrt(np.finfo(float).eps)
-#         # tol = 1e-10
-#         tol = 1e-8        
-        
-#         max_error = 0
-        
-#         n_iter = 0
-#         while True:
-            
-#             obj_list = []
-#             valid_move_list = []
-#             meas_list = []
-            
-#             n_zero = 0
-            
-#             zero_set = set()
-#             for b in sorted(valid_set):
-                
-#                 (condition, meas) = self.solver.solveEdgeUpdate(b)
-    
-#                 if condition < 0.0:
-#                     print "Inverting Detected Zero", b
-#                     n_zero += 1
-#                     zero_set.add(b)
-                    
-#                     continue
-                    
-#                 obj = self.obj_func.objFunc(np.concatenate(meas))
-                    
-#                 # print b, meas, obj
-                    
-#                 obj_list.append(obj)
-#                 valid_move_list.append(b)
-#                 meas_list.append(np.concatenate(meas))
-            
-#             # print obj_list
-            
-#             # print zero_set
-            
-#             print "Removing", n_zero, "/", len(valid_set), "/", self.nw.NE, "bonds would create zero modes..."
-            
-#             if len(valid_move_list) == 0:
-#                 print "No solution found."
-#                 break
-            
-                
-#             args = np.argsort(obj_list)   
-            
-#             min_list = []
-#             for i in range(len(obj_list)):
-#                 if obj_list[args[i]] < tol:
-#                     min_list.append(args[i])
-#                 else:
-#                     break
-                   
-#             if len(min_list) > 0:
-#                 rand.shuffle(min_list)
-#                 index = min_list[0]
-#             else:
-#                 index = args[0]
-            
-#             bmin = valid_move_list[index]
-#             obj_min = obj_list[index]
-            
-#             print "Removing", bmin
-            
-#             print n_iter, "Objective function:", obj_min, "Change:", obj_min - obj_prev
-            
-#             if (obj_min - obj_prev) / np.abs(obj_prev) > -tol:
-#                 print "Stopped making progress."
-#                 break
-                         
-#             obj_curr = obj_min
-#             obj_prev = obj_curr
-            
-#             K_curr[bmin] = 0.0            
-            
-#             (error, meas) = self.solver.removeEdge(bmin)
-#             # obj = self.obj_func.objFunc(np.concatenate(meas))
-#             # print obj_min, obj
-            
-# #             print meas_list[index]
-            
-#             print meas
-            
-#             if error > max_error:
-#                 max_error = error
-            
-#             valid_set.remove(bmin)
-            
-#             if obj_curr < tol**2:
-#                 break
-            
-          
-            
-#             n_iter += 1
-            
-        
-        
-#         self.solver.setIntStrengths(K_curr)
-#         meas = self.solver.solveMeas()
-        
-#         obj = self.func(K_curr)
-        
-#         print "obj", obj
-#         print "meas", meas
-        
-        
-        
-#         evals = self.solver.getEigenvals()
-            
-#         print evals[0:6]
-                    
-#         result = dict()
-
-        
-#         result['min_eval'] = evals[3]
-#         result['K'] = K_curr
-#         result['obj_func'] = obj_curr
-#         # result['obj_func_terms'] = obj_terms
-#         result['error'] = max_error
-
-#         if obj_curr < tol:
-#             result['success_flag'] = 0
-#             result['result_msg'] = "Valid solution found."
-#         else:
-#             result['success_flag'] = 1
-#             result['result_msg'] = "No valid solution found."
-
-#         print "Result:"
-#         print result
-        
-#         return result
-        
-        
-    def tune(self, verbose=True):
-                
-        #Set initial response ratio
-        self.solver.setIntStrengths(self.K_max)
-        meas = self.solver.solveMeas()
-        
-        meas_init = meas
-        
-        # print meas_init
-        
-        self.obj_func.setRatioInit(meas)
-        
-        # Calculate initial response
-        K_curr = self.K_max * self.K_disc
-        obj_prev = self.func(K_curr)
-        obj_curr = obj_prev
-        
-        if verbose:
-            print "Initial objective function:", obj_prev        
-        
-        # self.K_disc = self.NDISC * np.ones(self.nw.NE, int)
-        move_list = []
-        for b in range(self.nw.NE):
-            move_list.append({'bond': b, 'disc': np.min([self.NDISC, self.K_disc[b]+1])})
-            move_list.append({'bond': b, 'disc': np.max([0, self.K_disc[b] - 1])})
-            
-        
-        up_list = []
-        for move in move_list:
-            up = Update()
-            up.setStretchMod(1, [move['bond']], [self.K_max[move['bond']] * move['disc'] / self.NDISC])
-            up_list.append(up.getCyUpdate())
-
-        self.solver.prepareUpdateList(up_list)
-        
-        
-        # tol = np.sqrt(np.finfo(float).eps)
-        # tol = 1e-10
-        tol = 1e-8
-        
-        rem_set = set()
-        
-        
-        # pebble = network.PebbleGame(self.nw.NN)
-        # pebble.add_edges(self.nw.NE, self.nw.edgei, self.nw.edgej)
-        
-        adj = network.AdjList(self.nw.NN)
-        adj.add_edges(self.nw.NE, self.nw.edgei, self.nw.edgej)
-        
-        max_error = 0
-        
-        n_iter = 0
-        while True:
-            
-            if obj_curr == 0.0:
-                break
-            
-            obj_list = []
-            valid_move_list = []
-            meas_list = []
-            
-            
-            n_zero = 0
-            
-            zero_set = set()
-            pebble_set = set()
-            for i, move in enumerate(move_list):
-                                
-                bond = move['bond']
-                disc = move['disc']
-                
-                if self.K_disc[bond] == disc:
-                    continue
-                    
-                # if n_iter >= 28 and disc == 0.0 and pebble.test_remove_edge(self.nw.edgei[bond], self.nw.edgej[bond]):
-                #     print "Pebble Game Detected Zero", move
-                #     pebble_set.add(move['bond'])
-                
-                bi = self.nw.edgei[bond]
-                bj = self.nw.edgej[bond]
-                
-#                 if disc == 0.0:
-                    
-#                     if adj.get_degree(bi) == self.nw.DIM+1 or adj.get_degree(bj) == self.nw.DIM+1:
-#                         # print "Step Reduces Degree to DIM", move
-#                         n_zero += 1
-#                         zero_set.add(bond)
-                        
-#                         continue
-                    
-                    
-                (condition, meas) = self.solver.solveMeasUpdate(i)
-                
-                # print condition, meas
-                
-#                 if condition > 1e9 or condition < 0.0:
-#                     print "Step creates too much error", move, condition
-#                     n_zero += 1
-#                     zero_set.add(move['bond'])
-                    
-#                     continue
-    
-                if condition < 0.0:
-                    # print "Inverting Detected Zero", move, adj.get_degree(bi), adj.get_degree(bj)
-                    n_zero += 1
-                    zero_set.add(move['bond'])
-                    
-                    continue
-                    
-                obj = self.obj_func.objFunc(np.concatenate(meas))
-                    
-                # print move, obj
-                    
-                obj_list.append(obj)
-                valid_move_list.append(i)
-                meas_list.append(meas)
-            
-            # print obj_list
-            
-            # print zero_set
-            # print pebble_set
-            
-            if verbose:
-                print "Removing", n_zero, "/", np.sum(self.K_disc), "/",self.nw.NE, "bonds would create zero modes..."
-            
-            if len(valid_move_list) == 0:
-                if verbose:
-                    print "No solution found."
-                break
-            
-                
-            args = np.argsort(obj_list)   
-            
-            min_list = []
-            for i in range(len(obj_list)):
-                if obj_list[args[i]] == 0.0:
-                    min_list.append(args[i])
-                else:
-                    break
-                   
-            if len(min_list) > 0:
-                rand.shuffle(min_list)
-                index = min_list[0]
-            else:
-                index = args[0]
-            
-            min_move = move_list[valid_move_list[index]]
-            obj_curr = obj_list[index]
-            
-            if verbose:
-                print min_move
-            
-            # print meas_list[index]
-            
-            
-                
-            if verbose:
-                print n_iter, "Objective function:", obj_curr, "Change:", obj_curr - obj_prev, "Percent:", (obj_curr - obj_prev) / np.abs(obj_prev)
-            
-            if (obj_curr - obj_prev) / np.abs(obj_prev) > -tol:
-                if verbose:
-                    print "Stopped making progress."
-                break
-                
-            self.K_disc[min_move['bond']] = min_move['disc']
-            K_curr = self.K_max * self.K_disc / self.NDISC
-                
-            obj_prev = obj_curr
-                
-            (error, meas) = self.solver.setUpdate(valid_move_list[index])                           
-                
-            if error > max_error:
-                max_error = error
-                        
-            bond = min_move['bond']              
-            bi = self.nw.edgei[bond]
-            bj = self.nw.edgej[bond]
-            
-            if verbose:
-                print "Previous:", adj.get_degree(bi), adj.get_degree(bj)
-            
-            if min_move['disc'] == 0.0:
-                adj.remove_edge(self.nw.edgei[min_move['bond']], self.nw.edgej[min_move['bond']])
-            else:
-                adj.add_edge(self.nw.edgei[min_move['bond']], self.nw.edgej[min_move['bond']])
-                
-            if verbose:
-                print "Current:", adj.get_degree(bi), adj.get_degree(bj)
- 
-            
-#             if min_move['disc'] == 0.0:
-#                 pebble.remove_edge(self.nw.edgei[min_move['bond']], self.nw.edgej[min_move['bond']])
-#             else:
-#                 pebble.add_edge(self.nw.edgei[min_move['bond']], self.nw.edgej[min_move['bond']])
-            
-            
-            K_up = np.min([self.NDISC, min_move['disc']+1])
-            K_down = np.max([0, min_move['disc']-1])
-                            
-            replace1 = Update()
-            replace1.setStretchMod(1, [min_move['bond']], [self.K_max[min_move['bond']] * K_up / self.NDISC])
-            
-            replace2 = Update()
-            replace2.setStretchMod(1, [min_move['bond']], [self.K_max[min_move['bond']] * K_down / self.NDISC])
-            
-            move_list[2*min_move['bond']]['disc'] =  K_up
-            move_list[2*min_move['bond']+1]['disc'] =  K_down
-            
-            self.solver.replaceUpdates([2*min_move['bond'], 2*min_move['bond']+1], [replace1.getCyUpdate(), replace2.getCyUpdate()])
-            
-            n_iter += 1
-            
-            # print "Rigid?", pebble.is_rigid()
-        
-#             evals = self.solver.getEigenvals()
-            
-#             print evals[0:6]
-        
-        
-        
-#         adj = network.AdjList(self.nw.NN)
-#         adj.add_edges(self.nw.NE, self.nw.edgei, self.nw.edgej)
-#         for b in range(self.nw.NE):
-#             if self.K_disc[b] < 1e-1:
-#                 adj.remove_edge(self.nw.edgei[b], self.nw.edgej[b])
-                
-#         for b in range(self.nw.NN):
-#             print b, adj.get_degree(b)
-        
-        # There is numerical error in the the response which accidentally allows zero modes, so avoid calculating response with final stiffnesses
-        # (obj, obj_terms) = self.func_terms(K_curr)
-        obj = obj_prev
-        
-        
-        evals = self.solver.getEigenvals()
-        if verbose:   
-            print evals[0:6]
-                                
-        result = dict()
-        
-        self.solver.setIntStrengths(K_curr)
-        meas = self.solver.solveMeas()
-        obj_real = self.obj_func.objFunc(meas)
-        
-        res = self.obj_func.projMeas(meas)
-        if verbose:
-            print "Abs Obj Error:", obj - obj_real
-        
-        
-            print "Init:", meas_init
-            print "Final:", meas
-        meas_final = meas
-        
-        if verbose:
-            print "Rel Change:", (meas_final - meas_init) / meas_init
-            print "Abs Change:", meas_final - meas_init
-        
-        result['niter'] = n_iter
-        result['min_eval'] = evals[3]
-        result['K'] = K_curr
-        result['K_disc'] = self.K_disc
-        result['NR'] = self.nw.NE - np.sum(self.K_disc)
-        result['DZ_final'] = 2.0 * np.sum(self.K_disc) / self.nw.NN - 2.0 * (self.nw.DIM - 1.0 * self.nw.DIM / self.nw.NN)
-        result['obj_err'] = obj - obj_real
-        result['obj_func'] = obj
-        # result['obj_func_terms'] = obj_terms
-        result['max_error'] = max_error
-        result['condition'] = self.solver.getConditionNum()
-        result['obj_res'] = res
-
-        # save final meas and obj error
-        
-        if obj == 0.0:
-            result['success_flag'] = 0
-            result['result_msg'] = "Valid solution found."
-        else:
-            result['success_flag'] = 1
-            result['result_msg'] = "No valid solution found."
-        # if verbose:
-        #     print "Result:"
-        #     print result
-        
-        return result
     
 class TuneDiscNonlin(object):
     def __init__(self, nw, pert, meas, obj_func, K_init):

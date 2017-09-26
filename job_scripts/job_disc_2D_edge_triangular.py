@@ -1,6 +1,6 @@
 import sys, os
-sys.path.insert(0, '/data1/home/rocks/discrete_elasticity/')
-sys.path.insert(0, '/data1/home/rocks/discrete_elasticity/python_src/')
+sys.path.insert(0, '/data1/home/rocks/network_tuning/')
+sys.path.insert(0, '/data1/home/rocks/network_tuning/python_src/')
 
 import numpy as np
 import numpy.random as rand
@@ -156,7 +156,7 @@ job_list = []
 
           
     
-NN_list = [16, 36, 64, 144, 256, 529]
+NN_list = [16, 36, 64, 144, 256, 576]
 NREC_list = np.arange(128)
 Lp_list = [-1.0]
 
@@ -171,8 +171,7 @@ NTS_list = {16:2**np.arange(0, 5),
            64:2**np.arange(0, 7),
            144:2**np.arange(0, 8),
            256:2**np.arange(0, 8),
-           529:2**np.arange(0, 9),
-           1024:2**np.arange(0, 9)}
+           576:2**np.arange(0, 9)}
 
 NDIV = 3
 for NN in NN_list:

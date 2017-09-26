@@ -1,6 +1,6 @@
 import sys, os
-sys.path.insert(0, '/data1/home/rocks/discrete_elasticity/')
-sys.path.insert(0, '/data1/home/rocks/discrete_elasticity/python_src/')
+sys.path.insert(0, '/data1/home/rocks/network_tuning/')
+sys.path.insert(0, '/data1/home/rocks/network_tuning/python_src/')
 
 import numpy as np
 import numpy.random as rand
@@ -208,7 +208,7 @@ job_list = []
 #     job_list.extend(list(it.product([NN], NREC_list, NTS_list[NN], eta_list[NN], Lp_list)))
     
     
-################################
+###############################
     
     
 NN_list = [2048]
