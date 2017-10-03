@@ -181,7 +181,7 @@ void LinSolver::setIntStrengths(std::vector<double> &K) {
 // }
 
 void LinSolver::isolveU(std::vector<XVec > &u) {
-        
+    
     setupBorderedHessian(H);
     extendBorderedSystem();
         
@@ -260,14 +260,15 @@ void LinSolver::isolveM(XVec &meas) {
     std::vector<XVec > u;
         
     isolveU(u);
-        
+            
     meas = XVec::Zero(NM_tot);
     for(int t = 0; t < NF; t++) {
         
-        meas.segment(meas_index[t], NM[t]) = M[t].transpose() * u[t];
+        meas.segment(meas_index[t], NM[t]) = (M2K[t] * K.asDiagonal() * M2K[t].transpose() + IM[t]) 
+            * M[t].transpose() * u[t];
         
     }
-    
+        
 }
 
 void LinSolver::isolveMGrad(XVec &meas, std::vector<XVec > &grad) {
@@ -561,7 +562,8 @@ double LinSolver::solveMeasUpdate(int i, std::vector<std::vector<double> > &meas
         
         XVec m;
         if(NF == 1 || C1[t].nonZeros() == 0) {
-            m = M[t].transpose() * Hinvf[t] - HinvM[t].transpose() * BU * dK.asDiagonal() * A.inverse() * BU.transpose() * Hinvf[t];
+            m = (M2K[t] * K.asDiagonal() * M2K[t].transpose() + IM[t]) * 
+                M[t].transpose() * Hinvf[t] - HinvM[t].transpose() * BU * dK.asDiagonal() * A.inverse() * BU.transpose() * Hinvf[t];
         } else {
             XMat CHiC = C1[t].transpose() * HinvC1[t];
 
@@ -574,7 +576,8 @@ double LinSolver::solveMeasUpdate(int i, std::vector<std::vector<double> > &meas
 
             XVec HpiM = HinvM[t] - HinvC1[t] * CHiC * C1[t].transpose() * HinvM[t];
 
-            m = M[t].transpose() * Hpif - HpiM.transpose() * BU * dK.asDiagonal() * A.inverse() * BU.transpose() * Hpif;
+            m = (M2K[t] * K.asDiagonal() * M2K[t].transpose() + IM[t]) * 
+                M[t].transpose() * Hpif - HpiM.transpose() * BU * dK.asDiagonal() * A.inverse() * BU.transpose() * Hpif;
         }
                 
         eigenToVector(m, meas[t]);
@@ -780,7 +783,7 @@ double LinSolver::setUpdate(int i, std::vector<std::vector<double> > &meas) {
                 Hpif = - HinvC1[t] * CHiC * C0[t];
             }
 
-            m = M[t].transpose() * Hpif;
+            m = (M2K[t] * K.asDiagonal() * M2K[t].transpose() + IM[t]) * M[t].transpose() * Hpif;
         }
                 
         eigenToVector(m, meas[t]);
@@ -876,47 +879,78 @@ void LinSolver::setupGlobalConMat() {
         }
         COM /= nw.NN;
         
-        
-        XMat rot_axes = XMat::Zero(DIM*(DIM-1)/2 , 3);
-        
-        if(DIM == 2) {
-            rot_axes << 0, 0, 1;
-        } else if(DIM == 3) {
-            rot_axes << 1, 0, 0,
-                        0, 1, 0,
-                        0, 0, 1;
-        }
-        
-        for(int d = 0; d < DIM*(DIM-1)/2; d++) {
-            XVec global_rot = XVec::Zero(NNDOF);
-            
-            for(int i = 0; i < nw.NN; i++) {
-                Vec3d pos = Vec3d::Zero();
-                if(DIM == 2) {
-                    pos.segment<2>(0) = nw.node_pos.segment<2>(2*i) - COM.segment<2>(0);
-                } else if(DIM  == 3) {
-                    pos = nw.node_pos.segment<3>(3*i) - COM.segment<3>(0);
+        // Rows of rotation matrix that define rotation plane
+        // All other axes will be unaffected
+        int d = 0;
+        for(int d1 = 0; d1 < DIM-1; d1++) {
+            for(int d2 = d1+1; d2 < DIM; d2++) {
+                DMat dRdTheta = DMat::Identity();
+                dRdTheta(d1, d1) = 0;
+                dRdTheta(d1, d2) = -1;
+                dRdTheta(d2, d1) = 1;
+                dRdTheta(d2, d2) = 0;
+                
+                XVec global_rot = XVec::Zero(NNDOF);
+                
+                for(int i = 0; i < nw.NN; i++) {
+                    DVec pos = nw.node_pos.segment<DIM>(DIM*i) - COM;
+                    global_rot.segment<DIM>(DIM*i) = dRdTheta * pos;
                 }
                 
-                Vec3d axis = rot_axes.row(d);
+                global_rot.normalize();
                 
-                Vec3d rot_dir = axis.cross(pos);
+                for(int i = 0; i < NNDOF; i++) {
+                    G_trip_list.push_back(Trip(i, NDOF-NFGDOF+DIM+d, -global_rot(i)));
+                    G_trip_list.push_back(Trip(NDOF-NFGDOF+DIM+d, i, -global_rot(i)));
+                }
                 
-                if(DIM == 2) {
-                    global_rot.segment<2>(2*i) = rot_dir.segment<2>(0);
-                } else if(DIM  == 3) {
-                    global_rot.segment<3>(3*i) = rot_dir;
-                }               
+                d++;
             }
-            
-            global_rot.normalize();
-                        
-            for(int i = 0; i < NNDOF; i++) {
-                G_trip_list.push_back(Trip(i, NDOF-NFGDOF+DIM+d, -global_rot(i)));
-                G_trip_list.push_back(Trip(NDOF-NFGDOF+DIM+d, i, -global_rot(i)));
-            }
-            
         }
+        
+        
+        
+        
+//         XMat rot_axes = XMat::Zero(DIM*(DIM-1)/2 , 3);
+        
+//         if(DIM == 2) {
+//             rot_axes << 0, 0, 1;
+//         } else if(DIM == 3) {
+//             rot_axes << 1, 0, 0,
+//                         0, 1, 0,
+//                         0, 0, 1;
+//         }
+        
+//         for(int d = 0; d < DIM*(DIM-1)/2; d++) {
+//             XVec global_rot = XVec::Zero(NNDOF);
+            
+//             for(int i = 0; i < nw.NN; i++) {
+//                 Vec3d pos = Vec3d::Zero();
+//                 if(DIM == 2) {
+//                     pos.segment<2>(0) = nw.node_pos.segment<2>(2*i) - COM.segment<2>(0);
+//                 } else if(DIM  == 3) {
+//                     pos = nw.node_pos.segment<3>(3*i) - COM.segment<3>(0);
+//                 }
+                
+//                 Vec3d axis = rot_axes.row(d);
+                
+//                 Vec3d rot_dir = axis.cross(pos);
+                
+//                 if(DIM == 2) {
+//                     global_rot.segment<2>(2*i) = rot_dir.segment<2>(0);
+//                 } else if(DIM  == 3) {
+//                     global_rot.segment<3>(3*i) = rot_dir;
+//                 }               
+//             }
+            
+//             global_rot.normalize();
+                        
+//             for(int i = 0; i < NNDOF; i++) {
+//                 G_trip_list.push_back(Trip(i, NDOF-NFGDOF+DIM+d, -global_rot(i)));
+//                 G_trip_list.push_back(Trip(NDOF-NFGDOF+DIM+d, i, -global_rot(i)));
+//             }
+            
+//         }
         
     }
 
@@ -957,7 +991,7 @@ void LinSolver::setupPertMat() {
             for(int m = 0; m<DIM; m++) {
                 // C1_trip_list.push_back(Trip(DIM*ei+m, e, -Xhatij(m) / l0));
                 // C1_trip_list.push_back(Trip(DIM*ej+m, e, Xhatij(m) / l0));
-                
+                // Tune extension, not strain
                 C1_trip_list.push_back(Trip(DIM*ei+m, e, -Xhatij(m)));
                 C1_trip_list.push_back(Trip(DIM*ej+m, e, Xhatij(m)));
             }
@@ -1023,8 +1057,11 @@ void LinSolver::setupPertMat() {
 
 
             int ei = pert[t].istress_bonds(e);      
-
-            f[t] += Q.col(ei) * pert[t].istress(e) / nw.eq_length(ei);
+            
+            // Convert tension to force (force is energy per length)
+            f[t] += Q.col(ei) * pert[t].istress(e);
+            // Convert stress to force
+            // f[t] += Q.col(ei) * pert[t].istress(e) / nw.eq_length(ei);
         }
 
         if(pert[t].apply_affine_stress) {
@@ -1044,6 +1081,9 @@ void LinSolver::setupMeasMat() {
 
     NM.resize(NF);
     M.resize(NF);
+    M2K.resize(NF);
+    IM.resize(NF);
+    
     NM_tot = 0;
     
     for(int t = 0; t < NF; t++) {
@@ -1098,9 +1138,14 @@ void LinSolver::setupMeasMat() {
             }             
         }
 
-
+        M2K[t].resize(NM[t], nw.NE);
+        std::vector<Trip> M2K_trip_list;
+        
         // Output stress responses
         for(int e = 0; e < meas[t].NOstress; e++) {
+            M2K_trip_list.push_back(Trip(meas[t].NOstrain + NMA + e, meas[t].ostress_bonds(e), 1.0));
+            
+            
             int ei =  nw.edgei(meas[t].ostress_bonds(e));
             int ej =  nw.edgej(meas[t].ostress_bonds(e));
 
@@ -1129,6 +1174,16 @@ void LinSolver::setupMeasMat() {
         }
 
         M[t].setFromTriplets(M_trip_list.begin(), M_trip_list.end());
+        
+        M2K[t].setFromTriplets(M2K_trip_list.begin(), M2K_trip_list.end());
+        
+        
+        IM[t].resize(NM[t], NM[t]);
+        std::vector<Trip> IM_trip_list;
+        for(int i = 0; i < meas[t].NOstrain + NMA; i++) {
+            IM_trip_list.push_back(Trip(i, i, 1.0));
+        }
+        IM[t].setFromTriplets(IM_trip_list.begin(), IM_trip_list.end());
     }
     
     meas_index.resize(NF, 0);

@@ -87,6 +87,10 @@ class LinSolver: public AbstractSolver {
         std::vector<Measure> meas;
         // Measurement matrices
         std::vector<SMat >  M;
+        // Matrix that is used to multiply appropriate K's to M to measure stress when necessary full measurement operator is
+        // (M2K * K * M2K^T + IM) * M^T
+        std::vector<SMat >  M2K;
+        std::vector<SMat >  IM;
         
     
         // Hessian
