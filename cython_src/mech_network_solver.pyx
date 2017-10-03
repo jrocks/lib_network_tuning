@@ -140,8 +140,6 @@ cdef extern from "lin_solver.hpp":
         LinSolver(Network &nw, int NF, vector[Perturb] &pert, vector[Measure] &meas) except +
         
         void setIntStrengths(vector[double] &K)
-    
-        void solveDOF(vector[vector[double] ] &disp, vector[vector[double] ] &strain_tensor)
         
         void prepareUpdateList(vector[Update] &up_list)
         double solveMeasUpdate(int i, vector[vector[double] ] &meas)
@@ -149,21 +147,7 @@ cdef extern from "lin_solver.hpp":
         void replaceUpdates(vector[int] &replace_index, vector[Update] &replace_update)
         double getConditionNum()
         
-        void solveFeasability(AbstractObjFunc &obj_func, vector[bool] &feasible,
-                                        vector[vector[double] ] &u, vector[vector[double] ] &con_err)
-        
-        void getAugHessian(vector[vector[vector[double] ] ] &AH)
-        void getAugMeasMat(vector[vector[vector[double] ] ] &AM)
-        void getAugForce(vector[vector[double] ] &Af)
-        
         void getEigenvals(vector[double] &evals, bool bordered)
-        
-        
-        void initEdgeCalc(vector[vector[double] ] &meas);
-        void calcEdgeResponse(vector[vector[double] ] &meas);
-        double solveEdgeUpdate(int i, vector[vector[double] ] &meas);
-        double removeEdge(int irem, vector[vector[double] ] &meas);
-
 
 
         
@@ -741,23 +725,6 @@ cdef class CyLinSolver:
         cdef vector[double] c_K = np.ascontiguousarray(K, dtype=np.double)
         
         self.c_solver.setIntStrengths(c_K)
-      
-    def solveDOF(self):
-        cdef vector[vector[double]] c_disp
-        cdef vector[vector[double]] c_strain_tensor
-        
-        self.c_solver.solveDOF(c_disp, c_strain_tensor)
-        
-        disp = []
-        strain_tensor = []
-        
-        for i in range(c_disp.size()):
-            disp.append(np.array(c_disp[i]))
-            
-        for i in range(c_strain_tensor.size()):
-            strain_tensor.append(np.array(c_strain_tensor[i]))
-            
-        return (disp, strain_tensor)
     
     def solveAll(self):
         
@@ -843,76 +810,6 @@ cdef class CyLinSolver:
         
         return condition
     
-    def solveFeasability(self, CyIneqRatioChangeObjFunc obj_func):
-    
-        cdef vector[bool] c_feasible
-        cdef vector[vector[double]] c_u
-        cdef vector[vector[double]] c_con_err
-        
-        self.c_solver.solveFeasability(obj_func.c_obj, c_feasible, c_u, c_con_err)
-        
-        u = []
-        feasible = []
-        con_err = []
-            
-        for i in range(c_feasible.size()):
-            feasible.append(np.array(c_feasible[i]))
-            
-        for i in range(c_u.size()):
-            u.append(np.array(c_u[i]))
-            
-        for i in range(c_con_err.size()):
-            con_err.append(np.array(c_con_err[i]))
-                
-        return (feasible, u, con_err)
-    
-    
-    def getAugHessian(self):
-        
-        cdef vector[vector[vector[double] ] ] c_AH
-        
-        
-        self.c_solver.getAugHessian(c_AH)
-                
-        AH = []
-        
-        for t in range(c_AH.size()):
-            AH.append(np.zeros([c_AH[t].size(), c_AH[t][0].size()], np.double))
-            for j in range(c_AH[t].size()):
-                AH[t][j, :] = np.array(c_AH[t][j]) 
-
-        return AH
-    
-    def getAugMeasMat(self):
-        
-        cdef vector[vector[vector[double] ] ] c_AM
-        
-        
-        self.c_solver.getAugMeasMat(c_AM)
-                
-        AM = []
-        
-        for t in range(c_AM.size()):
-            AM.append(np.zeros([c_AM[t].size(), c_AM[t][0].size()], np.double))
-            for j in range(c_AM[t].size()):
-                AM[t][j, :] = np.array(c_AM[t][j]) 
-
-        return AM
-    
-    def getAugForce(self):
-        
-        cdef vector[vector[double] ] c_Af
-        
-        
-        self.c_solver.getAugForce(c_Af)
-                
-        fM = []
-        
-        for t in range(c_Af.size()):
-            fM.append(np.array(c_Af[t]))
-
-        return fM
-    
     def getEigenvals(self, bordered=True):
         cdef vector[double] c_evals
         cdef bool c_bordered = bordered
@@ -921,56 +818,6 @@ cdef class CyLinSolver:
         
         return np.array(c_evals)
     
-    
-    def initEdgeCalc(self):
-        cdef vector[vector[double]] c_meas
-        
-        self.c_solver.initEdgeCalc(c_meas)
-        
-        meas = []
-        
-        for i in range(c_meas.size()):
-            meas.append(np.array(c_meas[i]))
-                
-        return meas
-    
-    def calcEdgeResponse(self):
-        cdef vector[vector[double]] c_meas
-        
-        self.c_solver.calcEdgeResponse(c_meas)
-        
-        meas = []
-        
-        for i in range(c_meas.size()):
-            meas.append(np.array(c_meas[i]))
-                
-        return meas
-    
-    def solveEdgeUpdate(self, i):
-        cdef vector[vector[double]] c_meas
-        cdef c_i = i
-        
-        cdef double error = self.c_solver.solveEdgeUpdate(c_i, c_meas)
-        
-        meas = []
-        
-        for i in range(c_meas.size()):
-            meas.append(np.array(c_meas[i]))
-                
-        return (error, meas)
-    
-    def removeEdge(self, i):
-        cdef vector[vector[double]] c_meas
-        cdef c_i = i
-        
-        cdef double error = self.c_solver.removeEdge(c_i, c_meas)
-        
-        meas = []
-        
-        for i in range(c_meas.size()):
-            meas.append(np.array(c_meas[i]))
-                
-        return (error, meas)
     
 cdef class CyNonlinSolver:
     cdef NonlinSolver *c_solver

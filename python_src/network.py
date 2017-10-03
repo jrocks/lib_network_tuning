@@ -224,13 +224,11 @@ def loadFiniteRandomNetwork(label, irec):
     
     return nw
 
-def loadPeriodicRandomNetwork(label, seed):
+def loadPeriodicRandomNetwork(label, seed, DIM=2):
     
     directory="/data1/home/rocks/data/network_states/"
 
-    DIM = 2
-
-    irec = seed % 512
+    irec = seed
 
     seed = irec
 
@@ -241,153 +239,117 @@ def loadPeriodicRandomNetwork(label, seed):
     NN = len(data.dimensions['NP'])
 
     node_pos = data.variables['pos'][irec]
+        
     rad = data.variables['rad'][irec]
     box_mat = data.variables['BoxMatrix'][irec]
 
     L = np.zeros(DIM, float)
-    L[0] = box_mat[0]
-    L[1] = box_mat[3]
-
-
-    bondi = []
-    bondj = []
-    eq_length = []
-
-
-    NB = 0
-    
-    NBINS = np.max([int(np.sqrt(NN)/4.0), 1])
-    # NBINS = 4
-    print "NBINS", NBINS
-    
-    grid = [[[] for iy in range(NBINS)] for ix in range(NBINS)] 
-
+    for d in range(DIM):
+        L[d] = box_mat[d *(DIM+1)]
+        
     for i in range(NN):
         node_pos[DIM*i:DIM*i+DIM] *= L
 
-        posi = node_pos[DIM*i:DIM*i+DIM]
-        ix = int(np.floor(posi[0]/L[0] * NBINS))
-        iy = int(np.floor(posi[1]/L[1] * NBINS))
+    edgei = []
+    edgej = []
+    eq_length = []
 
-        grid[ix][iy].append(i)
-
-
-    bondspernode = np.zeros(NN, int)
-
-    grid_links = np.zeros([NBINS, NBINS, NBINS, NBINS], bool)
+    NE = 0
+    edgespernode = np.zeros(NN, int)
+        
+    gridL = np.max([int(round(NN**(1.0/DIM))/4.0), 1])
+    NBINS = gridL**DIM
     
-    for ix in range(NBINS):
-        for iy in range(NBINS):
-
-            for n in range(len(grid[ix][iy])):
-                for m in range(n+1,len(grid[ix][iy])):
-                    i = grid[ix][iy][n]
-                    j = grid[ix][iy][m]
-                    posi = node_pos[DIM*i:DIM*i+DIM]
-                    posj = node_pos[DIM*j:DIM*j+DIM]
-                    bvec = posj - posi
-                    bvec -= np.rint(bvec / L) * L
-                    l0 = la.norm(bvec)
-
-                    if l0 < rad[i] + rad[j]:
-                        NB += 1
-                        bondi.append(i)
-                        bondj.append(j)
-                        eq_length.append(l0)
-                        bondspernode[i] += 1
-                        bondspernode[j] += 1
-                        
-            grid_links[ix][iy][ix][iy] = True
+    print "Grid Length:", gridL, "Number Bins:", NBINS, "Nodes per Bin:", 1.0 * NN / NBINS
+    
+    tmp = []
+    for d in range(DIM):
+        tmp.append(np.arange(gridL))
+    
+    bin_to_grid = list(it.product(*tmp))
+    
+    grid_to_bin = {x: i for i, x in enumerate(bin_to_grid)}
+    
+    grid_links = set()
+                
+    for i in range(NBINS):
+        bini = bin_to_grid[i]
+        for j in range(i+1, NBINS):
+            binj = bin_to_grid[j]
             
-            
-            if not grid_links[ix][iy][(ix+1)%NBINS][iy] and not grid_links[(ix+1)%NBINS][iy][ix][iy]:
-                grid_links[ix][iy][(ix+1)%NBINS][iy] = True
-                grid_links[(ix+1)%NBINS][iy][ix][iy] = True
-                for i in grid[ix][iy]:
-                    for j in grid[(ix+1)%NBINS][iy]:
-                        posi = node_pos[DIM*i:DIM*i+DIM]
-                        posj = node_pos[DIM*j:DIM*j+DIM]
-                        bvec = posj - posi
-                        bvec -= np.rint(bvec / L) * L
-                        l0 = la.norm(bvec)
-
-                        if l0 < rad[i] + rad[j]:
-                            NB += 1
-                            bondi.append(i)
-                            bondj.append(j)
-                            eq_length.append(l0)
-                            bondspernode[i] += 1
-                            bondspernode[j] += 1
-
-            if not grid_links[ix][iy][ix][(iy+1)%NBINS] and not grid_links[ix][(iy+1)%NBINS][ix][iy]:
-                grid_links[ix][iy][ix][(iy+1)%NBINS] = True
-                grid_links[ix][(iy+1)%NBINS][ix][iy] = True
-                for i in grid[ix][iy]:
-                    for j in grid[ix][(iy+1)%NBINS]:
-                        posi = node_pos[DIM*i:DIM*i+DIM]
-                        posj = node_pos[DIM*j:DIM*j+DIM]
-                        bvec = posj - posi
-                        bvec -= np.rint(bvec / L) * L
-                        l0 = la.norm(bvec)
-
-                        if l0 < rad[i] + rad[j]:
-                            NB += 1
-                            bondi.append(i)
-                            bondj.append(j)
-                            eq_length.append(l0)
-                            bondspernode[i] += 1
-                            bondspernode[j] += 1
-
-            if not grid_links[ix][iy][(ix+1)%NBINS][(iy+1)%NBINS] and not grid_links[(ix+1)%NBINS][(iy+1)%NBINS][ix][iy]:
-                grid_links[ix][iy][(ix+1)%NBINS][(iy+1)%NBINS] = True
-                grid_links[(ix+1)%NBINS][(iy+1)%NBINS][ix][iy] = True
-                for i in grid[ix][iy]:
-                    for j in grid[(ix+1)%NBINS][(iy+1)%NBINS]:
-                        posi = node_pos[DIM*i:DIM*i+DIM]
-                        posj = node_pos[DIM*j:DIM*j+DIM]
-                        bvec = posj - posi
-                        bvec -= np.rint(bvec / L) * L
-                        l0 = la.norm(bvec)
-
-                        if l0 < rad[i] + rad[j]:
-                            NB += 1
-                            bondi.append(i)
-                            bondj.append(j)
-                            eq_length.append(l0)
-                            bondspernode[i] += 1
-                            bondspernode[j] += 1
-                            
-            if not grid_links[ix][iy][(ix-1+NBINS)%NBINS][(iy+1)%NBINS] and not grid_links[(ix-1+NBINS)%NBINS][(iy+1)%NBINS][ix][iy]:
-                grid_links[ix][iy][(ix-1+NBINS)%NBINS][(iy+1)%NBINS] = True
-                grid_links[(ix-1+NBINS)%NBINS][(iy+1)%NBINS][ix][iy] = True
-                for i in grid[ix][iy]:
-                    for j in grid[(ix-1+NBINS)%NBINS][(iy+1)%NBINS]:
+            link = True
                         
-                        posi = node_pos[DIM*i:DIM*i+DIM]
-                        posj = node_pos[DIM*j:DIM*j+DIM]
-                        bvec = posj - posi
-                        bvec -= np.rint(bvec / L) * L
-                        l0 = la.norm(bvec)
-
-                        if l0 < rad[i] + rad[j]:
-                            NB += 1
-                            bondi.append(i)
-                            bondj.append(j)
-                            eq_length.append(l0)
-                            bondspernode[i] += 1
-                            bondspernode[j] += 1
-
-
+            for d in range(DIM):
+                dist = bini[d] - binj[d]
+                dist -= np.rint(1.0*dist/gridL) * gridL
+                                
+                if np.abs(dist) > 1:
+                    link = False
+                    
+            if link:
+                grid_links.add(tuple(sorted([i,j])))
+      
+        
+    bin_nodes = [[] for b in range(NBINS)]
+        
+    for n in range(NN):
+        pos = node_pos[DIM*n:DIM*n+DIM]
+        ipos = tuple(np.floor(pos / L * gridL).astype(int))
+        
+        bin_nodes[grid_to_bin[ipos]].append(n)
+                
+    # add edges within each bin
+    for ibin in range(NBINS):
+        for i in range(len(bin_nodes[ibin])):
+            for j in range(i+1,len(bin_nodes[ibin])):
+                
+                ni = bin_nodes[ibin][i]
+                nj = bin_nodes[ibin][j]
+                
+                posi = node_pos[DIM*ni:DIM*ni+DIM]
+                posj = node_pos[DIM*nj:DIM*nj+DIM]
+                bvec = posj - posi
+                bvec -= np.rint(bvec / L) * L
+                l0 = la.norm(bvec)
+                
+                if l0 < rad[ni] + rad[nj]:
+                    NE += 1
+                    edgei.append(ni)
+                    edgej.append(nj)
+                    eq_length.append(l0)
+                    edgespernode[ni] += 1
+                    edgespernode[nj] += 1
+     
+    # add edge between bins
+    for (bini, binj) in grid_links:
+        for ni in bin_nodes[bini]:
+            for nj in bin_nodes[binj]:
+                
+                posi = node_pos[DIM*ni:DIM*ni+DIM]
+                posj = node_pos[DIM*nj:DIM*nj+DIM]
+                bvec = posj - posi
+                bvec -= np.rint(bvec / L) * L
+                l0 = la.norm(bvec)
+                
+                if l0 < rad[ni] + rad[nj]:
+                    NE += 1
+                    edgei.append(ni)
+                    edgej.append(nj)
+                    eq_length.append(l0)
+                    edgespernode[ni] += 1
+                    edgespernode[nj] += 1
+                    
+                    
     node_pos_tmp = np.copy(node_pos)
-    bondi_tmp = np.copy(bondi)
-    bondj_tmp = np.copy(bondj)
+    edgei_tmp = np.copy(edgei)
+    edgej_tmp = np.copy(edgej)
     eq_length_tmp = np.copy(eq_length)
 
     index_map = range(NN)
     rattlers = set()
     for i in range(NN):
-        if bondspernode[i] < DIM+1:
-            print "Removing", i, bondspernode[i]
+        if edgespernode[i] < DIM+1:
+            print "Removing", i, edgespernode[i]
             index_map.remove(i)
             rattlers.add(i)        
 
@@ -401,31 +363,208 @@ def loadPeriodicRandomNetwork(label, seed):
     for i in range(NN):
         node_pos[DIM*i:DIM*i+DIM] = node_pos_tmp[DIM*index_map[i]:DIM*index_map[i]+DIM]
 
-    bondi = []
-    bondj = []
+    edgei = []
+    edgej = []
     eq_length = []
-    for i in range(NB):
-        if bondi_tmp[i] not in rattlers and bondj_tmp[i] not in rattlers:
-            bondi.append(rev_index_map[bondi_tmp[i]])
-            bondj.append(rev_index_map[bondj_tmp[i]])
+    for i in range(NE):
+        if edgei_tmp[i] not in rattlers and edgej_tmp[i] not in rattlers:
+            edgei.append(rev_index_map[edgei_tmp[i]])
+            edgej.append(rev_index_map[edgej_tmp[i]])
             eq_length.append(eq_length_tmp[i])
 
-    NB = len(bondi)
+    NE = len(edgei)
 
-    bvecij = np.zeros(DIM*NB, float)
-    for b in range(NB):
-        bvec =  node_pos[DIM*bondj[b]:DIM*bondj[b]+DIM]-node_pos[DIM*bondi[b]:DIM*bondi[b]+DIM]
+    bvecij = np.zeros(DIM*NE, float)
+    for b in range(NE):
+        bvec =  node_pos[DIM*edgej[b]:DIM*edgej[b]+DIM]-node_pos[DIM*edgei[b]:DIM*edgei[b]+DIM]
         bvec -= np.rint(bvec / L) * L
         
         bvecij[DIM*b:DIM*b+DIM] = bvec
     
     print "NN", NN
-    print "NB", NB 
+    print "NE", NE 
         
-    net = Network(DIM, NN, node_pos, NB, bondi, bondj, DIM, L)
-    net.setStretchInt(bvecij, eq_length, np.ones(NB, float) / eq_length)
+    net = Network(DIM, NN, node_pos, NE, edgei, edgej, DIM, L)
+    net.setStretchInt(bvecij, eq_length, np.ones(NE, float) / eq_length)
     
     return net
+
+
+
+
+
+    
+    
+#     # NBINS = 4
+#     print "NBINS", NBINS
+    
+#     grid = [[[] for iy in range(NBINS)] for ix in range(NBINS)] 
+
+#     for i in range(NN):
+#         node_pos[DIM*i:DIM*i+DIM] *= L
+
+#         posi = node_pos[DIM*i:DIM*i+DIM]
+#         ix = int(np.floor(posi[0]/L[0] * NBINS))
+#         iy = int(np.floor(posi[1]/L[1] * NBINS))
+
+#         grid[ix][iy].append(i)
+
+
+
+#     bondspernode = np.zeros(NN, int)
+
+#     grid_links = np.zeros([NBINS, NBINS, NBINS, NBINS], bool)
+    
+#     for ix in range(NBINS):
+#         for iy in range(NBINS):
+
+#             for n in range(len(grid[ix][iy])):
+#                 for m in range(n+1,len(grid[ix][iy])):
+#                     i = grid[ix][iy][n]
+#                     j = grid[ix][iy][m]
+#                     posi = node_pos[DIM*i:DIM*i+DIM]
+#                     posj = node_pos[DIM*j:DIM*j+DIM]
+#                     bvec = posj - posi
+#                     bvec -= np.rint(bvec / L) * L
+#                     l0 = la.norm(bvec)
+
+#                     if l0 < rad[i] + rad[j]:
+#                         NB += 1
+#                         bondi.append(i)
+#                         bondj.append(j)
+#                         eq_length.append(l0)
+#                         bondspernode[i] += 1
+#                         bondspernode[j] += 1
+                        
+#             grid_links[ix][iy][ix][iy] = True
+            
+            
+#             if not grid_links[ix][iy][(ix+1)%NBINS][iy] and not grid_links[(ix+1)%NBINS][iy][ix][iy]:
+#                 grid_links[ix][iy][(ix+1)%NBINS][iy] = True
+#                 grid_links[(ix+1)%NBINS][iy][ix][iy] = True
+#                 for i in grid[ix][iy]:
+#                     for j in grid[(ix+1)%NBINS][iy]:
+#                         posi = node_pos[DIM*i:DIM*i+DIM]
+#                         posj = node_pos[DIM*j:DIM*j+DIM]
+#                         bvec = posj - posi
+#                         bvec -= np.rint(bvec / L) * L
+#                         l0 = la.norm(bvec)
+
+#                         if l0 < rad[i] + rad[j]:
+#                             NB += 1
+#                             bondi.append(i)
+#                             bondj.append(j)
+#                             eq_length.append(l0)
+#                             bondspernode[i] += 1
+#                             bondspernode[j] += 1
+
+#             if not grid_links[ix][iy][ix][(iy+1)%NBINS] and not grid_links[ix][(iy+1)%NBINS][ix][iy]:
+#                 grid_links[ix][iy][ix][(iy+1)%NBINS] = True
+#                 grid_links[ix][(iy+1)%NBINS][ix][iy] = True
+#                 for i in grid[ix][iy]:
+#                     for j in grid[ix][(iy+1)%NBINS]:
+#                         posi = node_pos[DIM*i:DIM*i+DIM]
+#                         posj = node_pos[DIM*j:DIM*j+DIM]
+#                         bvec = posj - posi
+#                         bvec -= np.rint(bvec / L) * L
+#                         l0 = la.norm(bvec)
+
+#                         if l0 < rad[i] + rad[j]:
+#                             NB += 1
+#                             bondi.append(i)
+#                             bondj.append(j)
+#                             eq_length.append(l0)
+#                             bondspernode[i] += 1
+#                             bondspernode[j] += 1
+
+#             if not grid_links[ix][iy][(ix+1)%NBINS][(iy+1)%NBINS] and not grid_links[(ix+1)%NBINS][(iy+1)%NBINS][ix][iy]:
+#                 grid_links[ix][iy][(ix+1)%NBINS][(iy+1)%NBINS] = True
+#                 grid_links[(ix+1)%NBINS][(iy+1)%NBINS][ix][iy] = True
+#                 for i in grid[ix][iy]:
+#                     for j in grid[(ix+1)%NBINS][(iy+1)%NBINS]:
+#                         posi = node_pos[DIM*i:DIM*i+DIM]
+#                         posj = node_pos[DIM*j:DIM*j+DIM]
+#                         bvec = posj - posi
+#                         bvec -= np.rint(bvec / L) * L
+#                         l0 = la.norm(bvec)
+
+#                         if l0 < rad[i] + rad[j]:
+#                             NB += 1
+#                             bondi.append(i)
+#                             bondj.append(j)
+#                             eq_length.append(l0)
+#                             bondspernode[i] += 1
+#                             bondspernode[j] += 1
+                            
+#             if not grid_links[ix][iy][(ix-1+NBINS)%NBINS][(iy+1)%NBINS] and not grid_links[(ix-1+NBINS)%NBINS][(iy+1)%NBINS][ix][iy]:
+#                 grid_links[ix][iy][(ix-1+NBINS)%NBINS][(iy+1)%NBINS] = True
+#                 grid_links[(ix-1+NBINS)%NBINS][(iy+1)%NBINS][ix][iy] = True
+#                 for i in grid[ix][iy]:
+#                     for j in grid[(ix-1+NBINS)%NBINS][(iy+1)%NBINS]:
+                        
+#                         posi = node_pos[DIM*i:DIM*i+DIM]
+#                         posj = node_pos[DIM*j:DIM*j+DIM]
+#                         bvec = posj - posi
+#                         bvec -= np.rint(bvec / L) * L
+#                         l0 = la.norm(bvec)
+
+#                         if l0 < rad[i] + rad[j]:
+#                             NB += 1
+#                             bondi.append(i)
+#                             bondj.append(j)
+#                             eq_length.append(l0)
+#                             bondspernode[i] += 1
+#                             bondspernode[j] += 1
+
+
+#     node_pos_tmp = np.copy(node_pos)
+#     bondi_tmp = np.copy(bondi)
+#     bondj_tmp = np.copy(bondj)
+#     eq_length_tmp = np.copy(eq_length)
+
+#     index_map = range(NN)
+#     rattlers = set()
+#     for i in range(NN):
+#         if bondspernode[i] < DIM+1:
+#             print "Removing", i, bondspernode[i]
+#             index_map.remove(i)
+#             rattlers.add(i)        
+
+#     rev_index_map = -1 * np.ones(NN, int)
+#     for i in range(len(index_map)):
+#         rev_index_map[index_map[i]] = i
+
+#     NN = len(index_map)
+#     node_pos = np.zeros(DIM*NN, float)
+
+#     for i in range(NN):
+#         node_pos[DIM*i:DIM*i+DIM] = node_pos_tmp[DIM*index_map[i]:DIM*index_map[i]+DIM]
+
+#     bondi = []
+#     bondj = []
+#     eq_length = []
+#     for i in range(NB):
+#         if bondi_tmp[i] not in rattlers and bondj_tmp[i] not in rattlers:
+#             bondi.append(rev_index_map[bondi_tmp[i]])
+#             bondj.append(rev_index_map[bondj_tmp[i]])
+#             eq_length.append(eq_length_tmp[i])
+
+#     NB = len(bondi)
+
+#     bvecij = np.zeros(DIM*NB, float)
+#     for b in range(NB):
+#         bvec =  node_pos[DIM*bondj[b]:DIM*bondj[b]+DIM]-node_pos[DIM*bondi[b]:DIM*bondi[b]+DIM]
+#         bvec -= np.rint(bvec / L) * L
+        
+#         bvecij[DIM*b:DIM*b+DIM] = bvec
+    
+#     print "NN", NN
+#     print "NB", NB 
+        
+#     net = Network(DIM, NN, node_pos, NB, bondi, bondj, DIM, L)
+#     net.setStretchInt(bvecij, eq_length, np.ones(NB, float) / eq_length)
+    
+#     return net
 
 
 def create2DTriLattice(NX, NY, a):

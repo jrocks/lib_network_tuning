@@ -29,247 +29,238 @@ LinSolver::LinSolver(Network &nw, int NF, std::vector<Perturb> &pert, std::vecto
     
     K = XVec::Ones(nw.NE);
     
-    need_H = true;
-    need_Hinv = true;
-    need_HinvPert = true;
-    need_HinvM = true;
-        
     setupEqMat();
     setupGlobalConMat();
     setupPertMat();
     setupMeasMat();
+    setupHessian(H);
+    
+    bordered = false;
 }
 
 void LinSolver::setIntStrengths(std::vector<double> &K) {
-    
     vectorToEigen(K, this->K);
-    
-    need_H = true;
-    need_Hinv = true;
-    need_HinvPert = true;
-    need_HinvM = true;
+    setupHessian(H);
 }
 
 
-void LinSolver::calcHessian() {
+// void LinSolver::calcHessian() {
     
-    if(!need_H) {
-        return;
-    }
+//     if(!need_H) {
+//         return;
+//     }
     
     
-    SMat I(NDOF, NDOF);
-    std::vector<Trip > id_trip_list;
-    for(int k = 0; k < NNDOF; k++) {
-        // id_trip_list.push_back(Trip(k, k, 1e-6));
-    }
-    I.setFromTriplets(id_trip_list.begin(), id_trip_list.end());
+//     SMat I(NDOF, NDOF);
+//     std::vector<Trip > id_trip_list;
+//     for(int k = 0; k < NNDOF; k++) {
+//         // id_trip_list.push_back(Trip(k, k, 1e-6));
+//     }
+//     I.setFromTriplets(id_trip_list.begin(), id_trip_list.end());
     
-    H = Q * K.asDiagonal() * Q.transpose() + G + I;
+//     H = Q * K.asDiagonal() * Q.transpose() + G + I;
           
-//     std::vector<double> evals;
-//     getEigenvals(evals, false);
+// //     std::vector<double> evals;
+// //     getEigenvals(evals, false);
     
-//     std::cout << evals[0] << "\t" << evals[1] << "\t" << evals[2] << "\t" << evals[3] << std::endl;
+// //     std::cout << evals[0] << "\t" << evals[1] << "\t" << evals[2] << "\t" << evals[3] << std::endl;
     
-    // Perform LU decomposition
-    solver.compute(H);
-    if (solver.info() != Eigen::Success) {
-        // decomposition failed
+//     // Perform LU decomposition
+//     solver.compute(H);
+//     if (solver.info() != Eigen::Success) {
+//         // decomposition failed
                         
-        std::cout << "LU decomposition of Hessian failed." << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
+//         std::cout << "LU decomposition of Hessian failed." << std::endl;
+//         std::exit(EXIT_FAILURE);
+//     }
     
-    need_H = false;
-}
+//     need_H = false;
+// }
 
-void LinSolver::calcInvHessian() {
+// void LinSolver::calcInvHessian() {
     
-    if(!need_Hinv) {
-        return;
-    }
+//     if(!need_Hinv) {
+//         return;
+//     }
     
-    calcHessian();
+//     calcHessian();
                 
-    // Perform LU decomposition
-    Hinv = solver.solve(XMat(XMat::Identity(H.rows(), H.cols())));
-    // Hinv = XMat(H).inverse();
+//     // Perform LU decomposition
+//     Hinv = solver.solve(XMat(XMat::Identity(H.rows(), H.cols())));
+//     // Hinv = XMat(H).inverse();
             
-    if (solver.info() != Eigen::Success) {
-        std::cout << "Solving H^{-1} failed." << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
+//     if (solver.info() != Eigen::Success) {
+//         std::cout << "Solving H^{-1} failed." << std::endl;
+//         std::exit(EXIT_FAILURE);
+//     }
     
-    need_Hinv = false;
-}
+//     need_Hinv = false;
+// }
 
-void LinSolver::calcPert(bool use_full_inverse) {
+// void LinSolver::calcPert(bool use_full_inverse) {
     
-    if(!need_HinvPert) {
-        return;
-    }
+//     if(!need_HinvPert) {
+//         return;
+//     }
     
-    if(use_full_inverse) {
-        calcInvHessian();
-    } else {
-        calcHessian();
-    }
+//     if(use_full_inverse) {
+//         calcInvHessian();
+//     } else {
+//         calcHessian();
+//     }
     
     
-    HinvC1.resize(NF);
-    Hinvf.resize(NF);
+//     HinvC1.resize(NF);
+//     Hinvf.resize(NF);
     
-    for(int t = 0; t < NF; t++) {
+//     for(int t = 0; t < NF; t++) {
     
-        //  H^{-1}C_1
-        if(C1[t].nonZeros() > 0) {
-            if(use_full_inverse) {
-                HinvC1[t] = Hinv * C1[t];
-            } else {
-                HinvC1[t] = solver.solve(XMat(C1[t]));
-                if (solver.info() != Eigen::Success) {
-                    std::cout << "Solving H^{-1}C_1 failed." << std::endl;
-                    std::exit(EXIT_FAILURE);
-                }
-            }
+//         //  H^{-1}C_1
+//         if(C1[t].nonZeros() > 0) {
+//             if(use_full_inverse) {
+//                 HinvC1[t] = Hinv * C1[t];
+//             } else {
+//                 HinvC1[t] = solver.solve(XMat(C1[t]));
+//                 if (solver.info() != Eigen::Success) {
+//                     std::cout << "Solving H^{-1}C_1 failed." << std::endl;
+//                     std::exit(EXIT_FAILURE);
+//                 }
+//             }
                 
-        }
+//         }
 
-        //  H^{-1}f
-        if(f[t].nonZeros() > 0) {
-            if(use_full_inverse) {
-                Hinvf[t] = Hinv * f[t];
-            } else {
-                Hinvf[t] = solver.solve(XVec(f[t]));
+//         //  H^{-1}f
+//         if(f[t].nonZeros() > 0) {
+//             if(use_full_inverse) {
+//                 Hinvf[t] = Hinv * f[t];
+//             } else {
+//                 Hinvf[t] = solver.solve(XVec(f[t]));
+//                 if (solver.info() != Eigen::Success) {
+//                     std::cout << "Solving H^{-1}f failed." << std::endl;
+//                     std::exit(EXIT_FAILURE);
+//                 }
+//             }
+//         }
+//     }
+    
+//     need_HinvPert = false;
+    
+// }
+
+// void LinSolver::calcMeas(bool use_full_inverse) {
+    
+//     if(!need_HinvM) {
+//         return;
+//     }
+    
+//     if(use_full_inverse) {
+//         calcInvHessian();
+//     } else {
+//         calcHessian();
+//     }
+    
+//     HinvM.resize(NF);
+    
+//     for(int t = 0; t < NF; t++) {
+    
+//         //  H^{-1}M
+//         if(M[t].nonZeros() > 0) {
+//             if(use_full_inverse) {
+//                 HinvM[t] = Hinv * M[t];
+//             } else {
+//                 HinvM[t] = solver.solve(XMat(M[t]));
+//                 if (solver.info() != Eigen::Success) {
+//                     std::cout << "Solving H^{-1}M failed." << std::endl;
+//                     std::exit(EXIT_FAILURE);
+//                 }
+//             }
+//         }
+//     }  
+
+//     need_HinvM = false;
+// }
+
+void LinSolver::isolveU(std::vector<XVec > &u) {
+        
+    setupBorderedHessian(H);
+    extendBorderedSystem();
+        
+    solver.compute(H);
+        
+    u.resize(NF);
+    Hinvf.resize(NF);
+    HinvC1.resize(NF);
+    for(int t = 0; t < NF; t++ ) {
+        XVec u_tmp;
+        if(NF == 1 || C1[t].nonZeros() == 0) {
+            
+            Hinvf[t] = solver.solve(XMat(f[t]));
+            if (solver.info() != Eigen::Success) {
+                std::cout << "Solving H^{-1}f failed." << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            u_tmp = Hinvf[t];
+        } else {
+            
+            HinvC1[t] = solver.solve(XMat(C1[t]));
+            if (solver.info() != Eigen::Success) {
+                std::cout << "Solving H^{-1}C_1 failed." << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            
+            XMat CHiC = C1[t].transpose() * HinvC1[t];
+
+            if(f[t].nonZeros() > 0) {
+                Hinvf[t] = solver.solve(XMat(f[t]));
                 if (solver.info() != Eigen::Success) {
                     std::cout << "Solving H^{-1}f failed." << std::endl;
                     std::exit(EXIT_FAILURE);
                 }
-            }
-        }
-    }
-    
-    need_HinvPert = false;
-    
-}
-
-void LinSolver::calcMeas(bool use_full_inverse) {
-    
-    if(!need_HinvM) {
-        return;
-    }
-    
-    if(use_full_inverse) {
-        calcInvHessian();
-    } else {
-        calcHessian();
-    }
-    
-    HinvM.resize(NF);
-    
-    for(int t = 0; t < NF; t++) {
-    
-        //  H^{-1}M
-        if(M[t].nonZeros() > 0) {
-            if(use_full_inverse) {
-                HinvM[t] = Hinv * M[t];
+                
+                u_tmp = (Hinvf[t] - HinvC1[t] * CHiC * (C1[t].transpose() * Hinvf[t] + C0[t]));
             } else {
-                HinvM[t] = solver.solve(XMat(M[t]));
-                if (solver.info() != Eigen::Success) {
-                    std::cout << "Solving H^{-1}M failed." << std::endl;
-                    std::exit(EXIT_FAILURE);
-                }
+                u_tmp = - HinvC1[t] * CHiC * C0[t];
             }
-        }
-    }  
-
-    need_HinvM = false;
-}
-
-void LinSolver::isolveU(std::vector<XVec > &u) {
-    
-    SMat BH;
-    
-    BH.resize(NDOF+NC[0], NDOF+NC[0]);
-    SMat H = Q * K.asDiagonal() * Q.transpose() + G;
-    
-    std::vector<Trip > BH_trip_list; 
-    for (int k = 0; k < H.outerSize(); ++k) {
-        for (SMat::InnerIterator it(H, k); it; ++it) {
-            BH_trip_list.push_back(Trip(it.row(), it.col(), it.value()));
-        }
+        } 
+        
+        u[t] = u_tmp.segment(0, NDOF);
     }
-    
-    for (int k = 0; k < C1[0].outerSize(); ++k) {
-        for (SMat::InnerIterator it(C1[0], k); it; ++it) {
-            BH_trip_list.push_back(Trip(it.row(), NDOF + it.col(), -it.value()));
-            BH_trip_list.push_back(Trip(NDOF + it.col(), it.row(), -it.value()));
-        }
-    }
-    
-    BH.setFromTriplets(BH_trip_list.begin(), BH_trip_list.end());
-    
-    Bsolver.compute(BH);
-    
-    
-    std::vector<Trip > Bf_trip_list; 
-    SMat Bf;
-    Bf.resize(NDOF+NC[0], 1);
-    for (int k = 0; k < f[0].outerSize(); ++k) {
-        for (SMat::InnerIterator it(f[0], k); it; ++it) {
-            Bf_trip_list.push_back(Trip(it.row(), it.col(), it.value()));
-        }
-    }
-    for(int k = 0; k < NC[0]; k++) {
-        Bf_trip_list.push_back(Trip(NDOF+k, 0, C0[0](k)));
-    }
-    Bf.setFromTriplets(Bf_trip_list.begin(), Bf_trip_list.end());
-    
-    XMat BHinvf = Bsolver.solve(XMat(Bf));
-    if (Bsolver.info() != Eigen::Success) {
-        std::cout << "Solving BH^{-1}f failed." << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-    
-    u.resize(NF);
-    u[0] = BHinvf.block(0, 0, NDOF, 1);
-   
 
 }
 
 void LinSolver::isolveLambda(std::vector<XVec > &lambda) {
     
-    bool use_full_inverse = (NC_tot > NDOF);
+//     bool use_full_inverse = (NC_tot > NDOF);
     
-    calcPert(use_full_inverse);
+//     calcPert(use_full_inverse);
    
-    lambda.resize(NF);
+//     lambda.resize(NF);
     
-    for(int t = 0; t < NF; t++) {
+//     for(int t = 0; t < NF; t++) {
     
-        if(C1[t].nonZeros() > 0) {
-            XMat A = (C1[t].transpose() * HinvC1[t]).inverse();
+//         if(C1[t].nonZeros() > 0) {
+//             XMat A = (C1[t].transpose() * HinvC1[t]).inverse();
 
-            if(f[t].nonZeros() > 0) {
-                lambda[t] = - A * (C1[t].transpose() * Hinvf[t] + C0[t]);
-            } else {
-                lambda[t] = - A * C0[t];
-            }
-        } else if(f[t].nonZeros() > 0) {
-            lambda[t] = XVec::Zero(NC[t]);
-        } else {
-            std::cout << "Func Error" << std::endl;
-            exit(EXIT_SUCCESS);
-        }            
-    }
+//             if(f[t].nonZeros() > 0) {
+//                 lambda[t] = - A * (C1[t].transpose() * Hinvf[t] + C0[t]);
+//             } else {
+//                 lambda[t] = - A * C0[t];
+//             }
+//         } else if(f[t].nonZeros() > 0) {
+//             lambda[t] = XVec::Zero(NC[t]);
+//         } else {
+//             std::cout << "Func Error" << std::endl;
+//             exit(EXIT_SUCCESS);
+//         }            
+//     }
 }
 
 
 void LinSolver::isolveM(XVec &meas) {
     std::vector<XVec > u;
+        
     isolveU(u);
-    
+        
     meas = XVec::Zero(NM_tot);
     for(int t = 0; t < NF; t++) {
         
@@ -281,228 +272,203 @@ void LinSolver::isolveM(XVec &meas) {
 
 void LinSolver::isolveMGrad(XVec &meas, std::vector<XVec > &grad) {
 
-    bool use_full_inverse = (NC_tot > NDOF) || (NM_tot > NDOF);
+//     bool use_full_inverse = (NC_tot > NDOF) || (NM_tot > NDOF);
     
-    calcPert(use_full_inverse);
-    calcMeas(use_full_inverse);
+//     calcPert(use_full_inverse);
+//     calcMeas(use_full_inverse);
     
-    meas = XVec::Zero(NM_tot);
-    grad.resize(NM_tot);
+//     meas = XVec::Zero(NM_tot);
+//     grad.resize(NM_tot);
     
-    for(int t = 0; t < NF; t++) {
+//     for(int t = 0; t < NF; t++) {
         
-        XVec u;
+//         XVec u;
     
-        XMat Hinv11M;
-        if(C1[t].nonZeros() > 0) {
-            XMat A = (C1[t].transpose() * HinvC1[t]).inverse();
-            Hinv11M = HinvM[t] - HinvC1[t] * A * C1[t].transpose() * HinvM[t];
+//         XMat Hinv11M;
+//         if(C1[t].nonZeros() > 0) {
+//             XMat A = (C1[t].transpose() * HinvC1[t]).inverse();
+//             Hinv11M = HinvM[t] - HinvC1[t] * A * C1[t].transpose() * HinvM[t];
 
-            if(f[t].nonZeros() > 0) {
-                u = (Hinvf[t] - HinvC1[t] * A * (C1[t].transpose() * Hinvf[t] + C0[t]));
-            } else {
-                u = - HinvC1[t] * A * C0[t];
-            }
-        } else if(f[t].nonZeros() > 0) {
-            Hinv11M = HinvM[t];
-            u = Hinvf[t];
+//             if(f[t].nonZeros() > 0) {
+//                 u = (Hinvf[t] - HinvC1[t] * A * (C1[t].transpose() * Hinvf[t] + C0[t]));
+//             } else {
+//                 u = - HinvC1[t] * A * C0[t];
+//             }
+//         } else if(f[t].nonZeros() > 0) {
+//             Hinv11M = HinvM[t];
+//             u = Hinvf[t];
 
-        } else {
-            std::cout << "Grad Error" << std::endl;
-            exit(EXIT_SUCCESS);
-        }   
+//         } else {
+//             std::cout << "Grad Error" << std::endl;
+//             exit(EXIT_SUCCESS);
+//         }   
         
-        meas.segment(meas_index[t], NM[t]) = M[t].transpose() * u;
+//         meas.segment(meas_index[t], NM[t]) = M[t].transpose() * u;
 
-        XMat grad_mat = XMat::Zero(NM[t], nw.NE);
-        for(int b = 0; b < nw.NE; b++) {
-            double qu = (Q.col(b).transpose() * u)(0);
+//         XMat grad_mat = XMat::Zero(NM[t], nw.NE);
+//         for(int b = 0; b < nw.NE; b++) {
+//             double qu = (Q.col(b).transpose() * u)(0);
             
-            grad_mat.col(b) = - Hinv11M.transpose() * Q.col(b) * qu;
-        }
+//             grad_mat.col(b) = - Hinv11M.transpose() * Q.col(b) * qu;
+//         }
             
-        for(int im = 0; im < NM[t]; im++) {
-            grad[meas_index[t] + im] = grad_mat.row(im);
-        }      
+//         for(int im = 0; im < NM[t]; im++) {
+//             grad[meas_index[t] + im] = grad_mat.row(im);
+//         }      
         
         
-    } 
+//     } 
     
 }
 
 void LinSolver::isolveMHess(XVec &meas, std::vector<XVec > &grad, std::vector<XMat > &hess) {
-    bool use_full_inverse = true;
+//     bool use_full_inverse = true;
         
-    calcInvHessian();
-    calcPert(use_full_inverse);
-    calcMeas(use_full_inverse);
+//     calcInvHessian();
+//     calcPert(use_full_inverse);
+//     calcMeas(use_full_inverse);
         
-    meas = XVec::Zero(NM_tot);
-    grad.resize(NM_tot);
-    hess.resize(NM_tot, XMat::Zero(nw.NE, nw.NE));
+//     meas = XVec::Zero(NM_tot);
+//     grad.resize(NM_tot);
+//     hess.resize(NM_tot, XMat::Zero(nw.NE, nw.NE));
        
     
-    for(int t = 0; t < NF; t++) {
+//     for(int t = 0; t < NF; t++) {
         
-        XVec u;
+//         XVec u;
     
-        XMat Hinv11;
-        if(C1[t].nonZeros() > 0) {
+//         XMat Hinv11;
+//         if(C1[t].nonZeros() > 0) {
             
-            XMat A = (C1[t].transpose() * HinvC1[t]).inverse();
-            Hinv11 = Hinv - HinvC1[t] * A * HinvC1[t].transpose();
+//             XMat A = (C1[t].transpose() * HinvC1[t]).inverse();
+//             Hinv11 = Hinv - HinvC1[t] * A * HinvC1[t].transpose();
                         
-            if(f[t].nonZeros() > 0) {
-                u = (Hinvf[t] - HinvC1[t] * A * (C1[t].transpose() * Hinvf[t] + C0[t]));
-            } else {                
-                u = - HinvC1[t] * A * C0[t];
-            }
-        } else if(f[t].nonZeros() > 0) {
-            Hinv11 = Hinv;
-            u = Hinvf[t];
+//             if(f[t].nonZeros() > 0) {
+//                 u = (Hinvf[t] - HinvC1[t] * A * (C1[t].transpose() * Hinvf[t] + C0[t]));
+//             } else {                
+//                 u = - HinvC1[t] * A * C0[t];
+//             }
+//         } else if(f[t].nonZeros() > 0) {
+//             Hinv11 = Hinv;
+//             u = Hinvf[t];
 
-        } else {
-            std::cout << "Grad Error" << std::endl;
-            exit(EXIT_SUCCESS);
-        } 
+//         } else {
+//             std::cout << "Grad Error" << std::endl;
+//             exit(EXIT_SUCCESS);
+//         } 
                 
-        meas.segment(meas_index[t], NM[t]) = M[t].transpose() * u;
+//         meas.segment(meas_index[t], NM[t]) = M[t].transpose() * u;
 
-        XMat grad_mat = XMat::Zero(nw.NE, nw.NE);
-        XMat mgrad_mat = XMat::Zero(NM[t], nw.NE);
-        for(int b = 0; b < nw.NE; b++) {
-            double qu = (Q.col(b).transpose() * u)(0);
+//         XMat grad_mat = XMat::Zero(nw.NE, nw.NE);
+//         XMat mgrad_mat = XMat::Zero(NM[t], nw.NE);
+//         for(int b = 0; b < nw.NE; b++) {
+//             double qu = (Q.col(b).transpose() * u)(0);
             
-            grad_mat.col(b) = -Hinv11 * Q.col(b) * qu;
-            mgrad_mat.col(b) = M[t].transpose() * grad_mat.col(b);
-        }
+//             grad_mat.col(b) = -Hinv11 * Q.col(b) * qu;
+//             mgrad_mat.col(b) = M[t].transpose() * grad_mat.col(b);
+//         }
         
-        for(int im = 0; im < NM[t]; im++) {
-            grad[meas_index[t] + im] = mgrad_mat.row(im);
-        }        
+//         for(int im = 0; im < NM[t]; im++) {
+//             grad[meas_index[t] + im] = mgrad_mat.row(im);
+//         }        
                 
-        XVec hess_el = XVec::Zero(NM[t]);
-        XMat Hinv11M =  M[t].transpose() * Hinv11;
-        for(int bi = 0; bi < nw.NE; bi++) {
-            for(int bj = bi; bj < nw.NE; bj++) {
+//         XVec hess_el = XVec::Zero(NM[t]);
+//         XMat Hinv11M =  M[t].transpose() * Hinv11;
+//         for(int bi = 0; bi < nw.NE; bi++) {
+//             for(int bj = bi; bj < nw.NE; bj++) {
                 
-                double qidudkj = (Q.col(bi).transpose() * grad_mat.col(bj))(0);
-                double qjdudki = (Q.col(bj).transpose() * grad_mat.col(bi))(0);
+//                 double qidudkj = (Q.col(bi).transpose() * grad_mat.col(bj))(0);
+//                 double qjdudki = (Q.col(bj).transpose() * grad_mat.col(bi))(0);
                 
-                hess_el = -Hinv11M * (Q.col(bi) * qidudkj + Q.col(bj) * qjdudki);
+//                 hess_el = -Hinv11M * (Q.col(bi) * qidudkj + Q.col(bj) * qjdudki);
                 
-                for(int im = 0; im < NM[t]; im++) {
-                    hess[meas_index[t] + im](bi, bj) += hess_el(im);
-                    hess[meas_index[t] + im](bj, bi) += hess_el(im);
+//                 for(int im = 0; im < NM[t]; im++) {
+//                     hess[meas_index[t] + im](bi, bj) += hess_el(im);
+//                     hess[meas_index[t] + im](bj, bi) += hess_el(im);
                     
-                }
-            }
-        }
+//                 }
+//             }
+//         }
                     
-    } 
+//     } 
 }
 
 
 
-void LinSolver::solveDOF(std::vector<std::vector<double> > &disp, std::vector<std::vector<double> > &strain_tensor) {
-    std::vector<std::vector<double> > u;
+// void LinSolver::solveDOF(std::vector<std::vector<double> > &disp, std::vector<std::vector<double> > &strain_tensor) {
+//     std::vector<std::vector<double> > u;
     
-    solveU(u);
+//     solveU(u);
     
-    disp.resize(NF);
-    strain_tensor.resize(NF);
-    for(int t = 0; t < NF; t++) {
-        disp[t].reserve(NNDOF);
-        disp[t].assign(u[t].begin(), u[t].begin()+NNDOF);
+//     disp.resize(NF);
+//     strain_tensor.resize(NF);
+//     for(int t = 0; t < NF; t++) {
+//         disp[t].reserve(NNDOF);
+//         disp[t].assign(u[t].begin(), u[t].begin()+NNDOF);
         
-        strain_tensor[t].reserve(NADOF);
-        strain_tensor[t].assign(u[t].begin()+NNDOF, u[t].begin()+NNDOF+NADOF);
-    }
+//         strain_tensor[t].reserve(NADOF);
+//         strain_tensor[t].assign(u[t].begin()+NNDOF, u[t].begin()+NNDOF+NADOF);
+//     }
     
     
-}
+// }
 
 
 void LinSolver::prepareUpdateList(std::vector<Update> &up_list) {
         
     this->up_list = up_list;
     
-    dBHinv = XMat::Zero(NDOF+NC[0], NDOF+NC[0]);
+    setupHessian(H);
+    setupBorderedHessian(H);
+    extendBorderedSystem();
+        
+    dHinv = XMat::Zero(NDOF, NDOF);
+
+    //Apply SMat to make a new reference so H can change without causing seg faults
+    solver.compute(H);
+
+    Hinv = solver.solve(XMat(XMat::Identity(H.rows(), H.cols())));
+
     
-    // Initialize bordered Hessian
-    BH.resize(NDOF+NC[0], NDOF+NC[0]);
-    SMat H = Q * K.asDiagonal() * Q.transpose() + G;
     
-    std::vector<Trip > BH_trip_list; 
-    for (int k = 0; k < H.outerSize(); ++k) {
-        for (SMat::InnerIterator it(H, k); it; ++it) {
-            BH_trip_list.push_back(Trip(it.row(), it.col(), it.value()));
+    Hinvf.resize(NF);
+    HinvC1.resize(NF);
+    HinvM.resize(NF);
+    for(int t = 0; t < NF; t++) {
+        // Initialize perturbation
+        Hinvf[t] = solver.solve(XMat(f[t]));
+        if (solver.info() != Eigen::Success) {
+            std::cout << "Solving H^{-1}f failed." << std::endl;
+            std::exit(EXIT_FAILURE);
         }
-    }
-    
-    for (int k = 0; k < C1[0].outerSize(); ++k) {
-        for (SMat::InnerIterator it(C1[0], k); it; ++it) {
-            BH_trip_list.push_back(Trip(it.row(), NDOF + it.col(), -it.value()));
-            BH_trip_list.push_back(Trip(NDOF + it.col(), it.row(), -it.value()));
+        
+        if(NF != 1) {
+            HinvC1[t] = solver.solve(XMat(C1[t]));
+            if (solver.info() != Eigen::Success) {
+                std::cout << "Solving H^{-1}C_1 failed." << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
         }
-    }
-    
-    for (int k = 0; k < NNDOF; k++) {
-        // BH_trip_list.push_back(Trip(k, k, 1e-6));
-    }
-    
-    BH.setFromTriplets(BH_trip_list.begin(), BH_trip_list.end());
-    
-    Bsolver.compute(BH);
-    
-    BHinv = Bsolver.solve(XMat(XMat::Identity(BH.rows(), BH.cols())));
-    
-    // Initialize perturbation
-    std::vector<Trip > Bf_trip_list; 
-    Bf.resize(NDOF+NC[0], 1);
-    for (int k = 0; k < f[0].outerSize(); ++k) {
-        for (SMat::InnerIterator it(f[0], k); it; ++it) {
-            Bf_trip_list.push_back(Trip(it.row(), it.col(), it.value()));
+
+        // Initialize measurements
+        HinvM[t] = solver.solve(XMat(M[t]));
+        if (solver.info() != Eigen::Success) {
+            std::cout << "Solving H^{-1}M failed." << std::endl;
+            std::exit(EXIT_FAILURE);
         }
+
+        XMat tmp = H * HinvM[t];
+        tmp -= M[t];
+        
+        double error = tmp.cwiseAbs().maxCoeff();
+        std::cout << "Max Meas Error: " << error << std::endl;
     }
-    for(int k = 0; k < NC[0]; k++) {
-        Bf_trip_list.push_back(Trip(NDOF+k, 0, C0[0](k)));
-    }
-    Bf.setFromTriplets(Bf_trip_list.begin(), Bf_trip_list.end());
-    
-    BHinvf = Bsolver.solve(XMat(Bf));
-    if (Bsolver.info() != Eigen::Success) {
-        std::cout << "Solving BH^{-1}f failed." << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-    
-    // Initialize measurements
-    std::vector<Trip > BM_trip_list; 
-    BM.resize(NDOF+NC[0], NM[0]);
-    for (int k = 0; k < M[0].outerSize(); ++k) {
-        for (SMat::InnerIterator it(M[0], k); it; ++it) {
-            BM_trip_list.push_back(Trip(it.row(), it.col(), it.value()));
-        }
-    }
-    BM.setFromTriplets(BM_trip_list.begin(), BM_trip_list.end());
-    
-    BHinvM = Bsolver.solve(XMat(BM));
-    if (Bsolver.info() != Eigen::Success) {
-        std::cout << "Solving BH^{-1}M failed." << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-    
-    XMat tmp = BH * BHinvM;
-    tmp -= BM;
-    double error = tmp.cwiseAbs().maxCoeff();
-    std::cout << "Max Meas Error: " << error << std::endl;
-    
-    
-    
+
+
     SM_updates.resize(up_list.size());
-    
+
     for(std::vector<int>::size_type i = 0; i < up_list.size(); i++) {
-                
+
         // Setup Hessian perturbation
         SMat U(NDOF, up_list[i].NSM); 
 
@@ -516,9 +482,9 @@ void LinSolver::prepareUpdateList(std::vector<Update> &up_list) {
         //Calculate Hessian perturbation
 
         // H^{-1}U
-        
-        SMat BU(NDOF+NC[0], up_list[i].NSM);
-        
+
+        SMat BU(NDOF, up_list[i].NSM);
+
         std::vector<Trip > BU_trip_list; 
         for (int k = 0; k < U.outerSize(); ++k) {
             for (SMat::InnerIterator it(U, k); it; ++it) {
@@ -526,21 +492,20 @@ void LinSolver::prepareUpdateList(std::vector<Update> &up_list) {
             }
         }
         BU.setFromTriplets(BU_trip_list.begin(), BU_trip_list.end());
-        
-        XMat BHinvU = Bsolver.solve(XMat(BU)); 
-        if (Bsolver.info() != Eigen::Success) {
-            std::cout << "Solving BH^{-1}U failed." << std::endl;
+
+        XMat HinvU = solver.solve(XMat(BU)); 
+        if (solver.info() != Eigen::Success) {
+            std::cout << "Solving H^{-1}U failed." << std::endl;
         }
-       
-        SM_updates[i] = BU.transpose() * BHinvU;
+
+        SM_updates[i] = BU.transpose() * HinvU;
     }
-        
+                
 }
 
 double LinSolver::solveMeasUpdate(int i, std::vector<std::vector<double> > &meas) {
 
-    // Setup Hessian perturbation
-    SMat U(NDOF, up_list[i].NSM); 
+    
     XVec dK(up_list[i].NSM);
 
     XVec K = this->K;
@@ -548,8 +513,6 @@ double LinSolver::solveMeasUpdate(int i, std::vector<std::vector<double> > &meas
     // Changes in bond stretch moduli
     for(int s = 0; s < up_list[i].NSM; s++) {
         int b = up_list[i].sm_bonds(s);
-
-        U.col(s) = Q.col(b);
 
         double k1 = K(b);
         double k2 = up_list[i].stretch_mod(s);
@@ -561,16 +524,6 @@ double LinSolver::solveMeasUpdate(int i, std::vector<std::vector<double> > &meas
     }
     
     
-    SMat BU(NDOF+NC[0], up_list[i].NSM);
-        
-    std::vector<Trip > BU_trip_list; 
-    for (int k = 0; k < U.outerSize(); ++k) {
-        for (SMat::InnerIterator it(U, k); it; ++it) {
-            BU_trip_list.push_back(Trip(it.row(), it.col(), it.value()));
-        }
-    }
-    BU.setFromTriplets(BU_trip_list.begin(), BU_trip_list.end());
-
     XMat A = dK.asDiagonal() * SM_updates[i] + XMat::Identity(up_list[i].NSM, up_list[i].NSM);
 
     double det = fabs(A.determinant());
@@ -581,10 +534,48 @@ double LinSolver::solveMeasUpdate(int i, std::vector<std::vector<double> > &meas
         return -1.0;
     }
     
+    
+    
+    // Setup Hessian perturbation
+    SMat U(NDOF, up_list[i].NSM); 
+    for(int s = 0; s < up_list[i].NSM; s++) {
+        int b = up_list[i].sm_bonds(s);
+
+        U.col(s) = Q.col(b);
+
+    }
+    
+    
+    SMat BU(NDOF, up_list[i].NSM);
+        
+    std::vector<Trip > BU_trip_list; 
+    for (int k = 0; k < U.outerSize(); ++k) {
+        for (SMat::InnerIterator it(U, k); it; ++it) {
+            BU_trip_list.push_back(Trip(it.row(), it.col(), it.value()));
+        }
+    }
+    BU.setFromTriplets(BU_trip_list.begin(), BU_trip_list.end());
+    
     meas.resize(NF);
     for(int t = 0; t < NF; t++ ) {
+        
+        XVec m;
+        if(NF == 1 || C1[t].nonZeros() == 0) {
+            m = M[t].transpose() * Hinvf[t] - HinvM[t].transpose() * BU * dK.asDiagonal() * A.inverse() * BU.transpose() * Hinvf[t];
+        } else {
+            XMat CHiC = C1[t].transpose() * HinvC1[t];
 
-        XVec m = BM.transpose() * BHinvf - BHinvM.transpose() * BU * dK.asDiagonal() * A.inverse() * BU.transpose() * BHinvf;
+            XVec Hpif;
+            if(f[t].nonZeros() > 0) {
+                Hpif = (Hinvf[t] - HinvC1[t] * CHiC * (C1[t].transpose() * Hinvf[t] + C0[t]));
+            } else {
+                Hpif = - HinvC1[t] * CHiC * C0[t];
+            }
+
+            XVec HpiM = HinvM[t] - HinvC1[t] * CHiC * C1[t].transpose() * HinvM[t];
+
+            m = M[t].transpose() * Hpif - HpiM.transpose() * BU * dK.asDiagonal() * A.inverse() * BU.transpose() * Hpif;
+        }
                 
         eigenToVector(m, meas[t]);
     }
@@ -613,20 +604,20 @@ double LinSolver::solveMeasUpdate(int i, std::vector<std::vector<double> > &meas
 //         // BH_trip_list.push_back(Trip(k, k, 1e-6));
 //     }
     
-//     SMat BH;
-//     BH.resize(NDOF + NC[0], NDOF + NC[0]);
-//     BH.setFromTriplets(BH_trip_list.begin(), BH_trip_list.end());
+//     SMat H;
+//     H.resize(NDOF + NC[0], NDOF + NC[0]);
+//     H.setFromTriplets(BH_trip_list.begin(), BH_trip_list.end());
     
     
-//     XMat tmp = BH * (BHinvf - ((BHinv+dBHinv) * BU) * dK.asDiagonal() * A.inverse() * (BU.transpose() * BHinvf));
+//     XMat tmp = H * (Hinvf - ((Hinv+dHinv) * BU) * dK.asDiagonal() * A.inverse() * (BU.transpose() * Hinvf));
                 
-//     tmp -= Bf;
-//     double error = tmp.cwiseAbs().maxCoeff() / XMat(Bf).cwiseAbs().maxCoeff();
+//     tmp -= f;
+//     double error = tmp.cwiseAbs().maxCoeff() / XMat(f).cwiseAbs().maxCoeff();
 //     // std::cout << "Max Response Error: " << error << std::endl;
 
-//     XMat BHinvU = BHinv * BU;
+//     XMat BHinvU = Hinv * BU;
         
-//     double condition =  XMat(BH).cwiseAbs().rowwise().sum().maxCoeff() * (BHinv + dBHinv - BHinvU * dK.asDiagonal() * A.inverse() * BHinvU.transpose()).cwiseAbs().rowwise().sum().maxCoeff();
+//     double condition =  XMat(H).cwiseAbs().rowwise().sum().maxCoeff() * (Hinv + dHinv - BHinvU * dK.asDiagonal() * A.inverse() * BHinvU.transpose()).cwiseAbs().rowwise().sum().maxCoeff();
     
     double condition = 1.0;
     
@@ -643,8 +634,9 @@ void LinSolver::replaceUpdates(std::vector<int> &replace_index, std::vector<Upda
     
 }
 
+
 double LinSolver::setUpdate(int i, std::vector<std::vector<double> > &meas) {
-        
+              
     // Setup Hessian perturbation
     SMat U(NDOF, up_list[i].NSM); 
     XVec dK(up_list[i].NSM);
@@ -663,9 +655,9 @@ double LinSolver::setUpdate(int i, std::vector<std::vector<double> > &meas) {
         // std::cout << b << "\t" << k1 << "\t" << k2 << std::endl;
 
     }
-
+    
     // H^{-1}U
-    SMat BU(NDOF+NC[0], up_list[i].NSM);
+    SMat BU(NDOF, up_list[i].NSM);
         
     std::vector<Trip > BU_trip_list; 
     for (int k = 0; k < U.outerSize(); ++k) {
@@ -675,12 +667,15 @@ double LinSolver::setUpdate(int i, std::vector<std::vector<double> > &meas) {
     }
     BU.setFromTriplets(BU_trip_list.begin(), BU_trip_list.end());
     
-    XMat BHinvU = Bsolver.solve(XMat(BU)); 
-    if (Bsolver.info() != Eigen::Success) {
-        std::cout << "Solving BH^{-1}U failed." << std::endl;
-    }
         
-    BHinvU += dBHinv * BU;
+            
+    XMat BHinvU = solver.solve(XMat(BU));     
+    if (solver.info() != Eigen::Success) {
+        std::cout << "Solving H^{-1}U failed." << std::endl;
+    }
+
+        
+    BHinvU += dHinv * BU;
     
         
     XMat A = dK.asDiagonal() * SM_updates[i] + XMat::Identity(up_list[i].NSM, up_list[i].NSM);
@@ -695,13 +690,13 @@ double LinSolver::setUpdate(int i, std::vector<std::vector<double> > &meas) {
     
     // Calculate updated inverse Hessian terms
     XMat delta = -BHinvU * dK.asDiagonal() * A.inverse() * BHinvU.transpose();
-    dBHinv += delta;
-    
+    dHinv += delta;
+        
     std::cout << "Delta Max: " << delta.cwiseAbs().maxCoeff() << std::endl;
 
     for(int t = 0; t < NF; t++) {
-        BHinvf += delta * Bf;
-        BHinvM += delta * BM;
+        Hinvf[t] += delta * f[t];
+        HinvM[t] += delta * M[t];
     }
 
     // Calculate updated Sherman-Morrison updates
@@ -729,8 +724,8 @@ double LinSolver::setUpdate(int i, std::vector<std::vector<double> > &meas) {
 
         //Calculate Hessian perturbation
 
-        SM_updates[j] += BV.transpose() * delta * BV;   
-        
+        SM_updates[j] += BV.transpose() * delta * BV;  
+                
     }
 
     // Update interactions
@@ -738,46 +733,29 @@ double LinSolver::setUpdate(int i, std::vector<std::vector<double> > &meas) {
         int b = up_list[i].sm_bonds(s);
         K(b) = up_list[i].stretch_mod(s);
     }
-    
-    SMat H = Q * K.asDiagonal() * Q.transpose() + G;
         
-    std::vector<Trip > BH_trip_list; 
-    for (int k = 0; k < H.outerSize(); ++k) {
-        for (SMat::InnerIterator it(H, k); it; ++it) {
-            BH_trip_list.push_back(Trip(it.row(), it.col(), it.value()));
-        }
-    }
-    
-    for (int k = 0; k < C1[0].outerSize(); ++k) {
-        for (SMat::InnerIterator it(C1[0], k); it; ++it) {
-            BH_trip_list.push_back(Trip(it.row(), NDOF + it.col(), -it.value()));
-            BH_trip_list.push_back(Trip(NDOF + it.col(), it.row(), -it.value()));
-        }
-    }
-    
-        
-    for (int k = 0; k < NNDOF; k++) {
-        // BH_trip_list.push_back(Trip(k, k, 1e-6));
-    }
-    
-    SMat BH;
-    BH.resize(NDOF + NC[0], NDOF + NC[0]);
-    BH.setFromTriplets(BH_trip_list.begin(), BH_trip_list.end());
+    SMat H_local;
+    setupHessian(H_local);
+    setupBorderedHessian(H_local);
          
-    double error = ((BHinv + dBHinv) * BH - XMat::Identity(BH.rows(), BH.cols())).cwiseAbs().maxCoeff();
+    double error = ((Hinv + dHinv) * H_local - XMat::Identity(H_local.rows(), H_local.cols())).cwiseAbs().maxCoeff();
     std::cout << "Max Bordered Hessian Error: " << error << std::endl;
     
-    XMat tmp = BH * BHinvf;
-    tmp -= Bf;
-    error = tmp.cwiseAbs().maxCoeff();
-    std::cout << "Max Force Error: " << error << std::endl;
+    for(int t = 0; t < NF; t++) {
+
+        XMat tmp = H_local * Hinvf[t];
+        tmp -= f[t];
+        error = tmp.cwiseAbs().maxCoeff();
+        std::cout << "Max Force Error: " << error << std::endl;
+
+        tmp = H_local * HinvM[t];
+        tmp -= M[t];
+        error = tmp.cwiseAbs().maxCoeff() / XMat(M[t]).maxCoeff();
+        std::cout << "Max Meas Error: " << error << std::endl;
+    }
+
     
-    tmp = BH * BHinvM;
-    tmp -= BM;
-    error = tmp.cwiseAbs().maxCoeff() / XMat(BM).maxCoeff();
-    std::cout << "Max Meas Error: " << error << std::endl;
-    
-    double condition =  XMat(BH).cwiseAbs().rowwise().sum().maxCoeff() * (BHinv + dBHinv).cwiseAbs().rowwise().sum().maxCoeff();
+    double condition =  XMat(H_local).cwiseAbs().rowwise().sum().maxCoeff() * (Hinv + dHinv).cwiseAbs().rowwise().sum().maxCoeff();
     
     std::cout << "Condition Number: " << condition << std::endl;
     
@@ -789,8 +767,21 @@ double LinSolver::setUpdate(int i, std::vector<std::vector<double> > &meas) {
     
     meas.resize(NF);
     for(int t = 0; t < NF; t++ ) {
+        XVec m;
+        if(NF == 1 || C1[t].nonZeros() == 0) {
+            m = M[t].transpose() * Hinvf[t];
+        } else {
+            XMat CHiC = C1[t].transpose() * HinvC1[t];
 
-        XVec m = BM.transpose() * BHinvf;
+            XVec Hpif;
+            if(f[t].nonZeros() > 0) {
+                Hpif = (Hinvf[t] - HinvC1[t] * CHiC * (C1[t].transpose() * Hinvf[t] + C0[t]));
+            } else {
+                Hpif = - HinvC1[t] * CHiC * C0[t];
+            }
+
+            m = M[t].transpose() * Hpif;
+        }
                 
         eigenToVector(m, meas[t]);
     }
@@ -801,40 +792,25 @@ double LinSolver::setUpdate(int i, std::vector<std::vector<double> > &meas) {
 
 
 double LinSolver::getConditionNum() {
+
+    setupHessian(H);
+    setupBorderedHessian(H);
     
-    SMat H = Q * K.asDiagonal() * Q.transpose() + G;
-        
-    std::vector<Trip > BH_trip_list; 
-    for (int k = 0; k < H.outerSize(); ++k) {
-        for (SMat::InnerIterator it(H, k); it; ++it) {
-            BH_trip_list.push_back(Trip(it.row(), it.col(), it.value()));
-        }
-    }
+    solver.compute(H);
     
-    for (int k = 0; k < C1[0].outerSize(); ++k) {
-        for (SMat::InnerIterator it(C1[0], k); it; ++it) {
-            BH_trip_list.push_back(Trip(it.row(), NDOF + it.col(), -it.value()));
-            BH_trip_list.push_back(Trip(NDOF + it.col(), it.row(), -it.value()));
-        }
-    }
+    Hinv = solver.solve(XMat(XMat::Identity(H.rows(), H.cols())));
     
-        
-    // for (int k = 0; k < NNDOF; k++) {
-    //     // BH_trip_list.push_back(Trip(k, k, 1e-6));
-    // }
-    
-    SMat BH;
-    BH.resize(NDOF + NC[0], NDOF + NC[0]);
-    BH.setFromTriplets(BH_trip_list.begin(), BH_trip_list.end());
-    
-    Bsolver.compute(BH);
-    
-    BHinv = Bsolver.solve(XMat(XMat::Identity(BH.rows(), BH.cols())));
-    
-    double condition =  XMat(BH).cwiseAbs().rowwise().sum().maxCoeff() * BHinv.cwiseAbs().rowwise().sum().maxCoeff();
+    double condition =  XMat(H).cwiseAbs().rowwise().sum().maxCoeff() * Hinv.cwiseAbs().rowwise().sum().maxCoeff();
     
     return condition;
 }
+
+
+
+
+//////////////////////////////// Matrix Setup /////////////////////////////////////////////////////
+
+
 
 void LinSolver::setupEqMat() {
           
@@ -1165,6 +1141,73 @@ void LinSolver::setupMeasMat() {
 }
 
 
+void LinSolver::setupHessian(SMat &H) {
+    H = Q * K.asDiagonal() * Q.transpose() + G;   
+}
+
+void LinSolver::setupBorderedHessian(SMat &H) {
+    if(NF > 1) {
+        return;
+    }
+    
+    
+    NDOF = NNDOF + NADOF + NFGDOF + NC[0];
+    
+    std::vector<Trip > H_trip_list; 
+    for (int k = 0; k < H.outerSize(); ++k) {
+        for (SMat::InnerIterator it(H, k); it; ++it) {
+            H_trip_list.push_back(Trip(it.row(), it.col(), it.value()));
+        }
+    }
+
+    for (int k = 0; k < C1[0].outerSize(); ++k) {
+        for (SMat::InnerIterator it(C1[0], k); it; ++it) {
+            H_trip_list.push_back(Trip(it.row(), NNDOF + NADOF + NFGDOF + it.col(), -it.value()));
+            H_trip_list.push_back(Trip(NNDOF + NADOF + NFGDOF + it.col(), it.row(), -it.value()));
+        }
+    }
+    
+    H.resize(NDOF, NDOF);
+    H.setFromTriplets(H_trip_list.begin(), H_trip_list.end());
+}
+
+void LinSolver::extendBorderedSystem() {
+    
+    if(NF > 1 || bordered) {
+        return;
+    }
+      
+    //Setup bordered force
+    std::vector<Trip > f_trip_list; 
+    for (int k = 0; k < f[0].outerSize(); ++k) {
+        for (SMat::InnerIterator it(f[0], k); it; ++it) {
+            f_trip_list.push_back(Trip(it.row(), it.col(), it.value()));
+        }
+    }
+    for(int k = 0; k < NC[0]; k++) {
+        f_trip_list.push_back(Trip(NNDOF + NADOF + NFGDOF+k, 0, C0[0](k)));
+    }
+    
+    f[0].resize(NDOF, 1);
+    f[0].setFromTriplets(f_trip_list.begin(), f_trip_list.end());
+
+    //Setup bordered measurement matrix
+    std::vector<Trip > M_trip_list; 
+    
+    for (int k = 0; k < M[0].outerSize(); ++k) {
+        for (SMat::InnerIterator it(M[0], k); it; ++it) {
+            M_trip_list.push_back(Trip(it.row(), it.col(), it.value()));
+        }
+    }
+    
+    M[0].resize(NDOF, NM[0]);
+    M[0].setFromTriplets(M_trip_list.begin(), M_trip_list.end());
+    
+    bordered = true;
+    
+}
+
+
 void LinSolver::solveEnergy(int t, std::vector<double> &u, double &energy) {
             
     XVecMap u_map(u.data(), NNDOF+NADOF);
@@ -1187,39 +1230,11 @@ void LinSolver::solveGrad(int t, std::vector<double> &u, std::vector<double> &gr
 
 void LinSolver::getEigenvals(std::vector<double> &evals, bool bordered) {
     
-    SMat H = Q * K.asDiagonal() * Q.transpose() + G;
+    setupHessian(H);
+    setupBorderedHessian(H);
 
-    if(bordered) {
-    
-        std::vector<Trip > BH_trip_list; 
-        for (int k = 0; k < H.outerSize(); ++k) {
-            for (SMat::InnerIterator it(H, k); it; ++it) {
-                BH_trip_list.push_back(Trip(it.row(), it.col(), it.value()));
-            }
-        }
+    eigen_solver.compute(XMat(H));
 
-        for (int k = 0; k < C1[0].outerSize(); ++k) {
-            for (SMat::InnerIterator it(C1[0], k); it; ++it) {
-                BH_trip_list.push_back(Trip(it.row(), NDOF + it.col(), -it.value()));
-                BH_trip_list.push_back(Trip(NDOF + it.col(), it.row(), -it.value()));
-            }
-        }
-
-
-        for (int k = 0; k < NNDOF; k++) {
-            // BH_trip_list.push_back(Trip(k, k, 1e-6));
-        }
-
-        SMat BH;
-        BH.resize(NDOF + NC[0], NDOF + NC[0]);
-        BH.setFromTriplets(BH_trip_list.begin(), BH_trip_list.end());
-
-
-        eigen_solver.compute(XMat(BH));
-    } else {
-        eigen_solver.compute(XMat(H));
-        
-    }
         
     if (eigen_solver.info() != Eigen::Success) {
         std::cout << "Calculating eigen decomposition failed" << std::endl;
@@ -1235,7 +1250,7 @@ void LinSolver::getEigenvals(std::vector<double> &evals, bool bordered) {
 //     std::cout << "three" << std::endl;
 //     std::cout << eigen_solver.eigenvectors().col(4) << std::endl;;
     
-    evals.resize(NDOF+NC[0]);
-    evals.assign(eigen_solver.eigenvalues().data(), eigen_solver.eigenvalues().data()+NDOF+NC[0]);
+    evals.resize(NDOF);
+    evals.assign(eigen_solver.eigenvalues().data(), eigen_solver.eigenvalues().data()+NDOF);
 
 }
