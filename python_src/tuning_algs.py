@@ -298,7 +298,7 @@ class TuneDiscLin(object):
             
                 
             if verbose:
-                print n_iter, "Objective function:", obj_curr, "Change:", obj_curr - obj_prev, "Percent:", (obj_curr - obj_prev) / np.abs(obj_prev)
+                print n_iter, "Objective function:", obj_curr, "Change:", obj_curr - obj_prev, "Percent:", 100 * (obj_curr - obj_prev) / np.abs(obj_prev), "%"
             
             if (obj_curr - obj_prev) / np.abs(obj_prev) > -tol:
                 converge_count += 1

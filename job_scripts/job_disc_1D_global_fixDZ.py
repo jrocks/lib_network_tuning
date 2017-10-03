@@ -18,19 +18,19 @@ import tuning_algs as talgs
 
 def tune(NN, NTS, eta, irec, NDISC, Lp):
 
-    nw_label = "{}_distort_tri".format(NN)
+    # nw_label = "{}_distort_tri".format(NN)
     
     print 'NN', NN, 'NTS', NTS, 'eta', eta, 'irec', irec
     
     DIM = 1
 
-    length = int(np.sqrt(NN))
+#     length = int(np.sqrt(NN))
 
-    print "Length:", length
+#     print "Length:", length
     
-    trinet = nw.create2DTriLattice(length, length, 1.0)
+#     trinet = nw.create2DTriLattice(length, length, 1.0)
 
-    dist_net = nw.distortNetworkPos(trinet, sigma=0.1, seed=irec)
+#     dist_net = nw.distortNetworkPos(trinet, sigma=0.1, seed=irec)
     
 #     net1D = nw.convertToFlowNetwork(dist_net)
     
@@ -38,7 +38,17 @@ def tune(NN, NTS, eta, irec, NDISC, Lp):
     
 #     net = nw.lower_DZ(low_net, 2.0, seed=irec, remove=False, local=True)
 
-    net2D = nw.lower_DZ(dist_net, 1.0, seed=irec, remove=False, local=True)
+    # net2D = nw.lower_DZ(dist_net, 1.0, seed=irec, remove=False, local=True)
+    
+    
+    nw_label = "network_periodic_jammed/network_N{:05d}_Lp{:.2f}/network_irec{:04d}".format(NN, Lp, irec)
+    
+    with open("/data1/home/rocks/data/{:}.pkl".format(nw_label), 'rb') as pkl_file:
+
+        nw_data = pickle.load(pkl_file)
+        jam_net = nw_data['network'] 
+        
+    net2D = nw.lower_DZ(jam_net, 1.0, seed=irec, remove=False, local=True)
             
     net = nw.convertToFlowNetwork(net2D)   
     
@@ -163,95 +173,95 @@ def tune(NN, NTS, eta, irec, NDISC, Lp):
 job_list = []
 
 
-# NN_list = [16, 36, 64, 144, 256, 576]
-NN_list = [16, 36, 64, 100, 144, 196, 256, 400, 576]
-NREC_list = np.arange(512)
-Lp_list = [-1.0]
+# # NN_list = [16, 36, 64, 144, 256, 576]
+# NN_list = [16, 36, 64, 100, 144, 196, 256, 400, 576]
+# NREC_list = np.arange(512)
+# Lp_list = [-1.0]
 
-eta_list = {}
-for n in NN_list:
-    eta_list[n] = [1e-1]
+# eta_list = {}
+# for n in NN_list:
+#     eta_list[n] = [1e-1]
 
 
-NTS_list = {16:2**np.arange(0, 5),
-           36:2**np.arange(0, 5),
-           64:2**np.arange(1, 6),
-           100:2**np.arange(2, 6),
-           144:2**np.arange(2, 6),
-           196:2**np.arange(2, 6),
-           256:2**np.arange(2, 7),
-           400:2**np.arange(3, 7),
-           576:2**np.arange(3, 7),
-           784:2**np.arange(4, 7),
-           1024:2**np.arange(4, 7),
-           1600:2**np.arange(5, 8),
-           2304:2**np.arange(5, 8),
-           3136:2**np.arange(0, 8),
-           4096:2**np.arange(5, 8)}
+# NTS_list = {16:2**np.arange(0, 5),
+#            36:2**np.arange(0, 5),
+#            64:2**np.arange(1, 6),
+#            100:2**np.arange(2, 6),
+#            144:2**np.arange(2, 6),
+#            196:2**np.arange(2, 6),
+#            256:2**np.arange(2, 7),
+#            400:2**np.arange(3, 7),
+#            576:2**np.arange(3, 7),
+#            784:2**np.arange(4, 7),
+#            1024:2**np.arange(4, 7),
+#            1600:2**np.arange(5, 8),
+#            2304:2**np.arange(5, 8),
+#            3136:2**np.arange(0, 8),
+#            4096:2**np.arange(5, 8)}
 
-NDIV = 3
-for NN in NN_list:
-    tmp1 = []
-    tmp2 = np.copy(NTS_list[NN])
-    for i in range(NDIV):
-        tmp1 = np.copy(tmp2)
-        tmp2 = []
-        for i in range(len(tmp1)-1):
-            tmp2.append(tmp1[i])
-            if tmp1[i+1] > tmp1[i] + 1:
-                tmp2.append((tmp1[i+1] + tmp1[i]) / 2)
-        tmp2.append(tmp1[-1])
-    NTS_list[NN] = tmp2
+# NDIV = 3
+# for NN in NN_list:
+#     tmp1 = []
+#     tmp2 = np.copy(NTS_list[NN])
+#     for i in range(NDIV):
+#         tmp1 = np.copy(tmp2)
+#         tmp2 = []
+#         for i in range(len(tmp1)-1):
+#             tmp2.append(tmp1[i])
+#             if tmp1[i+1] > tmp1[i] + 1:
+#                 tmp2.append((tmp1[i+1] + tmp1[i]) / 2)
+#         tmp2.append(tmp1[-1])
+#     NTS_list[NN] = tmp2
 
-for NN in NN_list:
-    job_list.extend(list(it.product([NN], NREC_list, NTS_list[NN], eta_list[NN], Lp_list)))
+# for NN in NN_list:
+#     job_list.extend(list(it.product([NN], NREC_list, NTS_list[NN], eta_list[NN], Lp_list)))
     
-# ################################################
+# # ################################################
 
 
 
 
-NN_list = [784, 1024, 1600, 2304]
-NREC_list = np.arange(32)
-Lp_list = [-1.0]
+# NN_list = [784, 1024, 1600, 2304]
+# NREC_list = np.arange(32)
+# Lp_list = [-1.0]
 
-eta_list = {}
-for n in NN_list:
-    eta_list[n] = [1e-1]
+# eta_list = {}
+# for n in NN_list:
+#     eta_list[n] = [1e-1]
 
 
-NTS_list = {16:2**np.arange(0, 5),
-           36:2**np.arange(0, 5),
-           64:2**np.arange(1, 6),
-           100:2**np.arange(2, 6),
-           144:2**np.arange(2, 6),
-           196:2**np.arange(2, 6),
-           256:2**np.arange(2, 7),
-           400:2**np.arange(3, 7),
-           576:2**np.arange(3, 7),
-           784:2**np.arange(4, 7),
-           1024:2**np.arange(4, 7),
-           1600:2**np.arange(5, 8),
-           2304:2**np.arange(5, 8),
-           3136:2**np.arange(0, 8),
-           4096:2**np.arange(5, 8)}
+# NTS_list = {16:2**np.arange(0, 5),
+#            36:2**np.arange(0, 5),
+#            64:2**np.arange(1, 6),
+#            100:2**np.arange(2, 6),
+#            144:2**np.arange(2, 6),
+#            196:2**np.arange(2, 6),
+#            256:2**np.arange(2, 7),
+#            400:2**np.arange(3, 7),
+#            576:2**np.arange(3, 7),
+#            784:2**np.arange(4, 7),
+#            1024:2**np.arange(4, 7),
+#            1600:2**np.arange(5, 8),
+#            2304:2**np.arange(5, 8),
+#            3136:2**np.arange(0, 8),
+#            4096:2**np.arange(5, 8)}
 
-NDIV = 3
-for NN in NN_list:
-    tmp1 = []
-    tmp2 = np.copy(NTS_list[NN])
-    for i in range(NDIV):
-        tmp1 = np.copy(tmp2)
-        tmp2 = []
-        for i in range(len(tmp1)-1):
-            tmp2.append(tmp1[i])
-            if tmp1[i+1] > tmp1[i] + 1:
-                tmp2.append((tmp1[i+1] + tmp1[i]) / 2)
-        tmp2.append(tmp1[-1])
-    NTS_list[NN] = tmp2
+# NDIV = 3
+# for NN in NN_list:
+#     tmp1 = []
+#     tmp2 = np.copy(NTS_list[NN])
+#     for i in range(NDIV):
+#         tmp1 = np.copy(tmp2)
+#         tmp2 = []
+#         for i in range(len(tmp1)-1):
+#             tmp2.append(tmp1[i])
+#             if tmp1[i+1] > tmp1[i] + 1:
+#                 tmp2.append((tmp1[i+1] + tmp1[i]) / 2)
+#         tmp2.append(tmp1[-1])
+#     NTS_list[NN] = tmp2
 
-for NN in NN_list:
-    job_list.extend(list(it.product([NN], NREC_list, NTS_list[NN], eta_list[NN], Lp_list)))
+# for NN in NN_list:
+#     job_list.extend(list(it.product([NN], NREC_list, NTS_list[NN], eta_list[NN], Lp_list)))
     
     
 
@@ -259,9 +269,96 @@ for NN in NN_list:
           
     
          
-# 4^2 6^2 8^2 10^2 12^2 14^2 16^2 20^2 24^2 28^2 32^2 40^2 48^2 56^2 64^2
-# NN_list = [16, 36, 64, 144, 256, 576, 1024, 2304, 4096]
-NN_list = [16, 36, 64, 100, 144, 196, 256, 400, 576, 784, 1024, 1600, 2304, 3136, 4096]
+# # 4^2 6^2 8^2 10^2 12^2 14^2 16^2 20^2 24^2 28^2 32^2 40^2 48^2 56^2 64^2
+# # NN_list = [16, 36, 64, 144, 256, 576, 1024, 2304, 4096]
+# NN_list = [16, 36, 64, 100, 144, 196, 256, 400, 576, 784, 1024, 1600, 2304, 3136, 4096]
+# NREC_list = np.arange(32)
+# Lp_list = [-1.0]
+
+# eta_list = {}
+# for n in NN_list:
+#     eta_list[n] = [1e-1]
+
+
+# #1
+# NTS_list = {16:2**np.arange(0, 5),
+#            36:2**np.arange(0, 5),
+#            64:2**np.arange(0, 6),
+#            100:2**np.arange(0, 6),
+#            144:2**np.arange(0, 6),
+#            196:2**np.arange(0, 6),
+#            256:2**np.arange(0, 7),
+#            400:2**np.arange(0, 7),
+#            576:2**np.arange(0, 7),
+#            784:2**np.arange(0, 7),
+#            1024:2**np.arange(0, 7),
+#            1600:2**np.arange(0, 8),
+#            2304:2**np.arange(0, 8),
+#            3136:2**np.arange(0, 8),
+#            4096:2**np.arange(0, 8)}
+
+# NDIV = 0
+# for NN in NN_list:
+#     tmp1 = []
+#     tmp2 = np.copy(NTS_list[NN])
+#     for i in range(NDIV):
+#         tmp1 = np.copy(tmp2)
+#         tmp2 = []
+#         for i in range(len(tmp1)-1):
+#             tmp2.append(tmp1[i])
+#             if tmp1[i+1] > tmp1[i] + 1:
+#                 tmp2.append((tmp1[i+1] + tmp1[i]) / 2)
+#         tmp2.append(tmp1[-1])
+#     NTS_list[NN] = tmp2
+
+# for NN in NN_list:
+#     job_list.extend(list(it.product([NN], NREC_list, NTS_list[NN], eta_list[NN], Lp_list)))
+    
+    
+# NN_list = [8, 16, 32, 64, 128, 256, 512, 1024]
+# NREC_list = np.arange(32)
+# Lp_list = [-1.0]
+
+# eta_list = {}
+# for n in NN_list:
+#     eta_list[n] = [1e-1]
+
+    
+
+# NTS_list = {8:2**np.arange(0, 5),
+#            16:2**np.arange(1, 5),
+#            32:2**np.arange(1, 5),
+#            64:2**np.arange(2, 6),
+#            128:2**np.arange(3, 7),
+#            256:2**np.arange(4, 7),
+#            512:2**np.arange(4, 8),
+#            1024:2**np.arange(6, 9),
+#            2048:2**np.arange(0, 9)}
+
+# NDIV = 3
+# for NN in NN_list:
+#     tmp1 = []
+#     tmp2 = np.copy(NTS_list[NN])
+#     for i in range(NDIV):
+#         tmp1 = np.copy(tmp2)
+#         tmp2 = []
+#         for i in range(len(tmp1)-1):
+#             tmp2.append(tmp1[i])
+#             if tmp1[i+1] > tmp1[i] + 1:
+#                 tmp2.append((tmp1[i+1] + tmp1[i]) / 2)
+#         tmp2.append(tmp1[-1])
+#     NTS_list[NN] = tmp2
+
+# for NN in NN_list:
+#     job_list.extend(list(it.product([NN], NREC_list, NTS_list[NN], eta_list[NN], Lp_list)))
+    
+
+
+    
+
+          
+    
+NN_list = [8, 16, 32, 64, 128, 256, 512, 1024, 2048]
 NREC_list = np.arange(32)
 Lp_list = [-1.0]
 
@@ -269,23 +366,17 @@ eta_list = {}
 for n in NN_list:
     eta_list[n] = [1e-1]
 
+    
 
-#1
-NTS_list = {16:2**np.arange(0, 5),
-           36:2**np.arange(0, 5),
-           64:2**np.arange(0, 6),
-           100:2**np.arange(0, 6),
-           144:2**np.arange(0, 6),
-           196:2**np.arange(0, 6),
-           256:2**np.arange(0, 7),
-           400:2**np.arange(0, 7),
-           576:2**np.arange(0, 7),
-           784:2**np.arange(0, 7),
+NTS_list = {8:2**np.arange(0, 5),
+           16:2**np.arange(0, 5),
+           32:2**np.arange(0, 5),
+           64:2**np.arange(0, 5),
+           128:2**np.arange(0, 6),
+           256:2**np.arange(0, 6),
+           512:2**np.arange(0, 6),
            1024:2**np.arange(0, 7),
-           1600:2**np.arange(0, 8),
-           2304:2**np.arange(0, 8),
-           3136:2**np.arange(0, 8),
-           4096:2**np.arange(0, 8)}
+           2048:2**np.arange(0, 7)}
 
 NDIV = 0
 for NN in NN_list:
@@ -303,6 +394,11 @@ for NN in NN_list:
 
 for NN in NN_list:
     job_list.extend(list(it.product([NN], NREC_list, NTS_list[NN], eta_list[NN], Lp_list)))
+    
+    
+    
+    
+    
     
     
 # print job_list
@@ -340,7 +436,7 @@ for (NN, irec, NTS, eta, Lp) in jobs:
     DZ = 1.0e-1
     NDISC = 1
 
-    directory = "/data1/home/rocks/data/sat_transition/tune_disc_1D_global_fixDZ_0/"
+    directory = "/data1/home/rocks/data/sat_transition/tune_disc_1D_global_fixDZ_1/"
 
     fn = "N{:05d}_Lp{:.2f}_NTS{:06d}_eta{:.8f}_NDISC{:04d}_irec{:04d}.pkl".format(NN, Lp, NTS, eta, NDISC, irec)
 
