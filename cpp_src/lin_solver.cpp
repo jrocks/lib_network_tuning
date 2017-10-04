@@ -563,7 +563,7 @@ double LinSolver::solveMeasUpdate(int i, std::vector<std::vector<double> > &meas
         XVec m;
         if(NF == 1 || C1[t].nonZeros() == 0) {
             m = (M2K[t] * K.asDiagonal() * M2K[t].transpose() + IM[t]) * 
-                M[t].transpose() * Hinvf[t] - HinvM[t].transpose() * BU * dK.asDiagonal() * A.inverse() * BU.transpose() * Hinvf[t];
+                (M[t].transpose() * Hinvf[t] - HinvM[t].transpose() * BU * dK.asDiagonal() * A.inverse() * BU.transpose() * Hinvf[t]);
         } else {
             XMat CHiC = C1[t].transpose() * HinvC1[t];
 

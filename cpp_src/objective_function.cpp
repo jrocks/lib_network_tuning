@@ -557,10 +557,14 @@ void IneqRatioChangeObjFunc::projMeas(std::vector<double> &meas, std::vector<dou
     XVecMap _meas(meas.data(), meas.size());
     XVec delta_ratio;
     
-    if(relative) {
+    if(relative && change) {
         delta_ratio = (_meas - ratio_init).cwiseQuotient(ratio_init);
-    } else {
+    } else if(!relative && change) {
         delta_ratio = _meas - ratio_init;
+    } else if(relative & !change) {
+        delta_ratio = _meas.cwiseQuotient(ratio_init);
+    } else if(!relative & !change) {
+        delta_ratio = _meas;
     }
         
     XVec _pmeas = XVec::Zero(Nterms);

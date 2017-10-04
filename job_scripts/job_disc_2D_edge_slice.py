@@ -163,49 +163,49 @@ job_list = []
 
           
     
-# NN_list = [8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024]
-# NREC_list = np.arange(512)
-# Lp_list = [-1.0]
+NN_list = [8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024]
+NREC_list = np.arange(512)
+Lp_list = [-1.0]
 
-# eta_list = {}
-# for n in NN_list:
-#     eta_list[n] = [1e-1]
+eta_list = {}
+for n in NN_list:
+    eta_list[n] = [1e-1]
 
     
 
-# NTS_list = {8:2**np.arange(0, 4),
-#            12:2**np.arange(0, 4),
-#            16:2**np.arange(0, 5),
-#            24:2**np.arange(0, 5),
-#            32:2**np.arange(0, 6),
-#            48:2**np.arange(0, 6),
-#            64:2**np.arange(0, 6),
-#            96:2**np.arange(0, 7),
-#            128:2**np.arange(0, 7),
-#            192:2**np.arange(0, 7),
-#            256:2**np.arange(0, 8),
-#            384:2**np.arange(0, 8),
-#            512:2**np.arange(0, 9),
-#            768:2**np.arange(0, 9),
-#            1024:2**np.arange(0, 9),
-#            2048:2**np.arange(0, 10)}
+NTS_list = {8:2**np.arange(0, 4),
+           12:2**np.arange(0, 4),
+           16:2**np.arange(0, 5),
+           24:2**np.arange(0, 5),
+           32:2**np.arange(0, 6),
+           48:2**np.arange(0, 6),
+           64:2**np.arange(0, 6),
+           96:2**np.arange(0, 7),
+           128:2**np.arange(0, 7),
+           192:2**np.arange(0, 7),
+           256:2**np.arange(0, 8),
+           384:2**np.arange(0, 8),
+           512:2**np.arange(0, 9),
+           768:2**np.arange(0, 9),
+           1024:2**np.arange(0, 9),
+           2048:2**np.arange(0, 10)}
 
-# NDIV = 3
-# for NN in NN_list:
-#     tmp1 = []
-#     tmp2 = np.copy(NTS_list[NN])
-#     for i in range(NDIV):
-#         tmp1 = np.copy(tmp2)
-#         tmp2 = []
-#         for i in range(len(tmp1)-1):
-#             tmp2.append(tmp1[i])
-#             if tmp1[i+1] > tmp1[i] + 1:
-#                 tmp2.append((tmp1[i+1] + tmp1[i]) / 2)
-#         tmp2.append(tmp1[-1])
-#     NTS_list[NN] = tmp2
+NDIV = 3
+for NN in NN_list:
+    tmp1 = []
+    tmp2 = np.copy(NTS_list[NN])
+    for i in range(NDIV):
+        tmp1 = np.copy(tmp2)
+        tmp2 = []
+        for i in range(len(tmp1)-1):
+            tmp2.append(tmp1[i])
+            if tmp1[i+1] > tmp1[i] + 1:
+                tmp2.append((tmp1[i+1] + tmp1[i]) / 2)
+        tmp2.append(tmp1[-1])
+    NTS_list[NN] = tmp2
 
-# for NN in NN_list:
-#     job_list.extend(list(it.product([NN], NREC_list, NTS_list[NN], eta_list[NN], Lp_list)))
+for NN in NN_list:
+    job_list.extend(list(it.product([NN], NREC_list, NTS_list[NN], eta_list[NN], Lp_list)))
     
     
 ###############################

@@ -186,6 +186,8 @@ class TuneDiscLin(object):
         # Calculate initial response
         obj_prev = self.func(K_curr)
         obj_curr = obj_prev
+        K_prev = np.copy(K_curr)
+        K_disc_prev = np.copy(self.K_disc)
         
         if verbose:
             print "Initial objective function:", obj_prev        
@@ -293,9 +295,10 @@ class TuneDiscLin(object):
             if verbose:
                 print min_move
             
-            # print meas_list[index]
+            # print obj_curr, meas_list[index]
             
-            
+            self.K_disc[min_move['bond']] = min_move['disc']
+            K_curr = self.K_max * self.K_disc / self.NDISC
                 
             if verbose:
                 print n_iter, "Objective function:", obj_curr, "Change:", obj_curr - obj_prev, "Percent:", 100 * (obj_curr - obj_prev) / np.abs(obj_prev), "%"
@@ -309,10 +312,11 @@ class TuneDiscLin(object):
                     break
             else:
                 obj_prev = obj_curr
+                K_prev = np.copy(K_curr)
+                K_disc_prev = np.copy(self.K_disc)
                 converge_count = 0
                 
-            self.K_disc[min_move['bond']] = min_move['disc']
-            K_curr = self.K_max * self.K_disc / self.NDISC
+            
                 
             (error, meas) = self.solver.setUpdate(valid_move_list[index])                           
                 
@@ -344,7 +348,7 @@ class TuneDiscLin(object):
             bond_prev = bond
             
         obj = obj_prev
-        
+        K = K_prev
         
         # evals = self.solver.getEigenvals()
         # if verbose:   
@@ -352,7 +356,7 @@ class TuneDiscLin(object):
                                 
         result = dict()
         
-        self.solver.setIntStrengths(K_curr)
+        self.solver.setIntStrengths(K)
         meas = self.solver.solveMeas()
         obj_real = self.obj_func.objFunc(meas)
         
@@ -371,10 +375,10 @@ class TuneDiscLin(object):
         
         result['niter'] = n_iter
         # result['min_eval'] = evals[3]
-        result['K'] = K_curr
-        result['K_disc'] = self.K_disc
-        result['NR'] = self.net.NE - np.sum(self.K_disc)
-        result['DZ_final'] = 2.0 * np.sum(self.K_disc) / self.net.NN - 2.0 * (self.net.DIM - 1.0 * self.net.DIM / self.net.NN)
+        result['K'] = K
+        result['K_disc'] = K_disc_prev
+        result['NR'] = self.net.NE - np.sum(K_disc_prev)
+        result['DZ_final'] = 2.0 * np.sum(K_disc_prev) / self.net.NN - 2.0 * (self.net.DIM - 1.0 * self.net.DIM / self.net.NN)
         result['obj_err'] = obj - obj_real
         result['obj_func'] = obj
         # result['obj_func_terms'] = obj_terms

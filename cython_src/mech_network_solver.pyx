@@ -61,7 +61,7 @@ cdef extern from "objective_function.hpp":
     cdef cppclass IneqRatioChangeObjFunc(AbstractObjFunc):
         IneqRatioChangeObjFunc() except +
         IneqRatioChangeObjFunc(int Nterms, int Ngrad, vector[double] &ratio_init, 
-                               vector[double] &delta_ratio_target, bool relative) except +
+                               vector[double] &delta_ratio_target, bool relative, bool change) except +
         
         void setRatioInit(vector[double] &ratio_init)
         void objFuncTerms(vector[double] &meas, double &obj, vector[double] &terms)
@@ -347,15 +347,16 @@ cdef class CyAugIneqRatioChangeObjFunc:
 cdef class CyIneqRatioChangeObjFunc:
     cdef IneqRatioChangeObjFunc c_obj
     
-    def __cinit__(self, Nterms, Ngrad, ratio_init, delta_ratio_target, relative=True):
+    def __cinit__(self, Nterms, Ngrad, ratio_init, delta_ratio_target, relative=True, change=True):
         
         cdef int c_Nterms = Nterms
         cdef int c_Ngrad = Ngrad
         cdef vector[double] c_ratio_init = np.ascontiguousarray(ratio_init, dtype=np.double)
         cdef vector[double] c_delta_ratio_target = np.ascontiguousarray(delta_ratio_target, dtype=np.double)
         cdef bool c_relative = relative
+        cdef bool c_change = change
         
-        self.c_obj = IneqRatioChangeObjFunc(c_Nterms, c_Ngrad, c_ratio_init, c_delta_ratio_target, c_relative)
+        self.c_obj = IneqRatioChangeObjFunc(c_Nterms, c_Ngrad, c_ratio_init, c_delta_ratio_target, c_relative, c_change)
         
         
     def setRatioInit(self, ratio_init):
