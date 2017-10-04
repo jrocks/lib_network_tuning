@@ -396,23 +396,23 @@ void LinSolver::isolveMHess(XVec &meas, std::vector<XVec > &grad, std::vector<XM
 
 
 
-// void LinSolver::solveDOF(std::vector<std::vector<double> > &disp, std::vector<std::vector<double> > &strain_tensor) {
-//     std::vector<std::vector<double> > u;
+void LinSolver::solveDOF(std::vector<std::vector<double> > &disp, std::vector<std::vector<double> > &strain_tensor) {
+    std::vector<std::vector<double> > u;
     
-//     solveU(u);
+    solveU(u);
     
-//     disp.resize(NF);
-//     strain_tensor.resize(NF);
-//     for(int t = 0; t < NF; t++) {
-//         disp[t].reserve(NNDOF);
-//         disp[t].assign(u[t].begin(), u[t].begin()+NNDOF);
+    disp.resize(NF);
+    strain_tensor.resize(NF);
+    for(int t = 0; t < NF; t++) {
+        disp[t].reserve(NNDOF);
+        disp[t].assign(u[t].begin(), u[t].begin()+NNDOF);
         
-//         strain_tensor[t].reserve(NADOF);
-//         strain_tensor[t].assign(u[t].begin()+NNDOF, u[t].begin()+NNDOF+NADOF);
-//     }
+        strain_tensor[t].reserve(NADOF);
+        strain_tensor[t].assign(u[t].begin()+NNDOF, u[t].begin()+NNDOF+NADOF);
+    }
     
     
-// }
+}
 
 
 void LinSolver::prepareUpdateList(std::vector<Update> &up_list) {

@@ -214,7 +214,7 @@ def show_nodes(ax, net, nodes, disp=None, strain=None, styles={}, marker='o'):
                         
     ax.scatter(x1, y1, marker=marker , s=sizes, facecolor=colors, alpha=1.0)
 
-def show_vecs(ax, net, disp, strain=None):
+def show_vecs(ax, net, u, strain=None):
     
     edgei = np.copy(net.edgei)
     edgej = np.copy(net.edgej)
@@ -224,6 +224,8 @@ def show_vecs(ax, net, disp, strain=None):
     NN = net.NN
     L = np.copy(net.L)
     center = 0.5 * np.ones(DIM, float)
+    
+    disp = np.copy(u)
         
     if strain is None:
         strain = np.zeros([DIM, DIM], float)

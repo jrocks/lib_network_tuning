@@ -61,7 +61,7 @@ cdef extern from "objective_function.hpp":
     cdef cppclass IneqRatioChangeObjFunc(AbstractObjFunc):
         IneqRatioChangeObjFunc() except +
         IneqRatioChangeObjFunc(int Nterms, int Ngrad, vector[double] &ratio_init, 
-                               vector[double] &delta_ratio_target) except +
+                               vector[double] &delta_ratio_target, bool relative) except +
         
         void setRatioInit(vector[double] &ratio_init)
         void objFuncTerms(vector[double] &meas, double &obj, vector[double] &terms)
@@ -140,6 +140,8 @@ cdef extern from "lin_solver.hpp":
         LinSolver(Network &nw, int NF, vector[Perturb] &pert, vector[Measure] &meas) except +
         
         void setIntStrengths(vector[double] &K)
+        
+        void solveDOF(vector[vector[double] ] &disp, vector[vector[double] ] &strain_tensor)
         
         void prepareUpdateList(vector[Update] &up_list)
         double solveMeasUpdate(int i, vector[vector[double] ] &meas)
@@ -345,14 +347,15 @@ cdef class CyAugIneqRatioChangeObjFunc:
 cdef class CyIneqRatioChangeObjFunc:
     cdef IneqRatioChangeObjFunc c_obj
     
-    def __cinit__(self, Nterms, Ngrad, ratio_init, delta_ratio_target):
+    def __cinit__(self, Nterms, Ngrad, ratio_init, delta_ratio_target, relative=True):
         
         cdef int c_Nterms = Nterms
         cdef int c_Ngrad = Ngrad
         cdef vector[double] c_ratio_init = np.ascontiguousarray(ratio_init, dtype=np.double)
         cdef vector[double] c_delta_ratio_target = np.ascontiguousarray(delta_ratio_target, dtype=np.double)
+        cdef bool c_relative = relative
         
-        self.c_obj = IneqRatioChangeObjFunc(c_Nterms, c_Ngrad, c_ratio_init, c_delta_ratio_target)
+        self.c_obj = IneqRatioChangeObjFunc(c_Nterms, c_Ngrad, c_ratio_init, c_delta_ratio_target, c_relative)
         
         
     def setRatioInit(self, ratio_init):
@@ -722,9 +725,27 @@ cdef class CyLinSolver:
         
     def setIntStrengths(self, K):
         
-        cdef vector[double] c_K = np.ascontiguousarray(K, dtype=np.double)
+        cdef vector[double] c_K = np.ascontiguousarray(np.copy(K), dtype=np.double)
         
         self.c_solver.setIntStrengths(c_K)
+        
+        
+    def solveDOF(self):
+        cdef vector[vector[double]] c_disp
+        cdef vector[vector[double]] c_strain_tensor
+        
+        self.c_solver.solveDOF(c_disp, c_strain_tensor)
+        
+        disp = []
+        strain_tensor = []
+        
+        for i in range(c_disp.size()):
+            disp.append(np.array(c_disp[i]))
+            
+        for i in range(c_strain_tensor.size()):
+            strain_tensor.append(np.array(c_strain_tensor[i]))
+            
+        return (disp, strain_tensor)
     
     def solveAll(self):
         

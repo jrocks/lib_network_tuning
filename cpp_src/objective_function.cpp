@@ -555,10 +555,13 @@ void IneqRatioChangeObjFunc::funcHess(AbstractSolver &solver, double &obj, std::
 void IneqRatioChangeObjFunc::projMeas(std::vector<double> &meas, std::vector<double> &pmeas) {
 
     XVecMap _meas(meas.data(), meas.size());
-            
-    // XVec delta_ratio = (_meas - ratio_init).cwiseQuotient(ratio_init.cwiseAbs());
-    XVec delta_ratio = (_meas - ratio_init).cwiseQuotient(ratio_init);
-    // XVec delta_ratio = _meas - ratio_init;
+    XVec delta_ratio;
+    
+    if(relative) {
+        delta_ratio = (_meas - ratio_init).cwiseQuotient(ratio_init);
+    } else {
+        delta_ratio = _meas - ratio_init;
+    }
         
     XVec _pmeas = XVec::Zero(Nterms);
     

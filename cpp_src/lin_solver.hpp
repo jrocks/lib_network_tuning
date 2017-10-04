@@ -167,7 +167,7 @@ class LinSolver: public AbstractSolver {
         void isolveMHess(XVec &meas, std::vector<XVec > &grad, std::vector<XMat > &hess);
     
         // Solve for just the degrees of freedom
-        // void solveDOF(std::vector<std::vector<double> > &disp, std::vector<std::vector<double> > &strain_tensor);
+        void solveDOF(std::vector<std::vector<double> > &disp, std::vector<std::vector<double> > &strain_tensor);
     
         void getEigenvals(std::vector<double> &evals, bool bordered);
     
