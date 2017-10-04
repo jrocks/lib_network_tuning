@@ -1,0 +1,11 @@
+*.pyc
+*.pkl
+*.tgz
+*.gz
+*.pdf
+*.gif
+*.so
+cython_src/*.cpp
+.ipynb_checkpoints/
+frames/
+build/
