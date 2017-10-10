@@ -353,7 +353,7 @@ NTS_list = {8:2**np.arange(0, 5),
            512:2**np.arange(0, 8),
            1024:2**np.arange(0, 9),
            2048:2**np.arange(0, 10),
-           4096:2**np.arange(7, 10)}
+           4096:2**np.arange(7, 11)}
 
 NDIV = 3
 for NN in NN_list:

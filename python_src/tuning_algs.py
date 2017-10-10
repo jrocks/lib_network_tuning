@@ -1653,7 +1653,6 @@ class TuneDiscNonlin(object):
             cymeas.append(m.getCyMeas())
         
         self.solver = mns.CyNonlinSolver(nw.getCyNetwork(), len(cypert), cypert, cymeas)
-        self.lin_solver = mns.CyLinSolver(nw.getCyNetwork(), len(cypert), cypert, cymeas)
         
         self.obj_func = obj_func
         
@@ -1690,33 +1689,21 @@ class TuneDiscNonlin(object):
         
         print "Initial objective function:", obj_prev        
         
-        up_list = []
-        for b in range(self.nw.NE):
-            up = Update()
-            up.setStretchMod(1, [b], [0.0])
-            up_list.append(up.getCyUpdate())
-
-        self.lin_solver.prepareUpdateList(up_list)
+        tol = 1e-8
         
         rem_set = set()
         
+        n_iter = 0
         while True:
+            
+            if obj_curr == 0.0:
+                break
             
             obj_list = []
             b_list = []
             
+            
             for b in range(self.nw.NE):
-                if b % 25 == 0:
-                    print b
-                    sys.stdout.flush()
-                    
-                (success, meas) = self.lin_solver.solveMeasUpdate(b)
-                
-                if not success:
-                    print "Removing bond", b, "would create zero mode. Skipping..."
-                    sys.stdout.flush()
-                    continue
-                    
                     
                 K_curr = np.copy(self.K_init)
                 K_curr[list(rem_set)] = 0.0
@@ -1728,7 +1715,7 @@ class TuneDiscNonlin(object):
                 
                 obj = self.func(K_curr)
                     
-                # print b, meas, obj
+                # print b, obj
                     
                 obj_list.append(obj)
                 b_list.append(b)
@@ -1750,7 +1737,6 @@ class TuneDiscNonlin(object):
                     break
                    
             if len(min_list) > 0:
-                print min_list
                 rand.shuffle(min_list)
                 index = min_list[0]
             else:
@@ -1758,35 +1744,28 @@ class TuneDiscNonlin(object):
                             
             bmin = b_list[index]
             obj_curr = obj_list[index]
+                
+            print n_iter, "Objective function:", obj_curr, "Change:", obj_curr - obj_prev, "Percent:", 100 * (obj_curr - obj_prev) / np.abs(obj_prev), "%"
             
-            if obj_curr - obj_prev > -10*np.finfo(float).eps:
+            if (obj_curr - obj_prev) / np.abs(obj_prev) > -tol:
                 print "Stopped making progress."
                 break
-                
             
-            print "Objective function:", obj_curr, "Change:", np.abs(obj_curr - obj_prev)
-            sys.stdout.flush()
-            
-            replace_up = Update()
+           
             if bmin in rem_set:
                 print "Adding", bmin
-                sys.stdout.flush()
-                rem_set.remove(bmin)
-                # new update removes bmin
-                replace_up.setStretchMod(1, [bmin], [0.0])
+                K_prev[b] = self.K_init[b]
+                rem_set.discard(bmin)
             else:
                 print "Removing", bmin
-                sys.stdout.flush()
+                K_prev[b] = 0.0
                 rem_set.add(bmin)
-                # new update adds bmin
-                replace_up.setStretchMod(1, [bmin], [self.K_init[bmin]])
 
-            if obj_curr < 10*np.finfo(float).eps or np.abs(obj_curr - obj_prev) < 10*np.finfo(float).eps:
-                break
-            
-            self.lin_solver.setUpdate(bmin, replace_up.getCyUpdate())
+        
                 
             obj_prev = obj_curr
+            
+            n_iter += 1
                 
 
         K_curr = np.copy(self.K_init)
