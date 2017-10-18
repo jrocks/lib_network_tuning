@@ -1088,7 +1088,7 @@ void LinSolver::setupMeasMat() {
     
     for(int t = 0; t < NF; t++) {
     
-        NM[t] = meas[t].NOstrain + meas[t].NOstress;
+        NM[t] = meas[t].NOstrain + meas[t].NOstress + meas[t].NLambda;
         NM_tot += NM[t];
         int NMA = 0;
         if(meas[t].measure_affine_strain) {
@@ -1172,7 +1172,7 @@ void LinSolver::setupMeasMat() {
                 }
             }
         }
-
+        
         M[t].setFromTriplets(M_trip_list.begin(), M_trip_list.end());
         
         M2K[t].setFromTriplets(M2K_trip_list.begin(), M2K_trip_list.end());
@@ -1181,6 +1181,10 @@ void LinSolver::setupMeasMat() {
         IM[t].resize(NM[t], NM[t]);
         std::vector<Trip> IM_trip_list;
         for(int i = 0; i < meas[t].NOstrain + NMA; i++) {
+            IM_trip_list.push_back(Trip(i, i, 1.0));
+        }
+        
+        for(int i = meas[t].NOstrain + NMA + meas[t].NOstress; i < meas[t].NOstrain + NMA + meas[t].NOstress + meas[t].NLambda; i++) {
             IM_trip_list.push_back(Trip(i, i, 1.0));
         }
         IM[t].setFromTriplets(IM_trip_list.begin(), IM_trip_list.end());
@@ -1253,6 +1257,10 @@ void LinSolver::extendBorderedSystem() {
         for (SMat::InnerIterator it(M[0], k); it; ++it) {
             M_trip_list.push_back(Trip(it.row(), it.col(), it.value()));
         }
+    }
+    
+    for (int l = 0; l < meas[0].NLambda; l++) {
+        M_trip_list.push_back(Trip(NNDOF + NADOF + NFGDOF + meas[0].lambda_vars[l], meas[0].NOstrain + meas[0].NOstress + l, 1.0));
     }
     
     M[0].resize(NDOF, NM[0]);

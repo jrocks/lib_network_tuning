@@ -34,7 +34,8 @@ cdef extern from "measure.hpp":
                 vector[int] &ostrain_bonds,
                 vector[double] &ostrain_vec,
                 int NOstress, vector[int] &ostress_bonds,
-                bool measure_affine_strain, bool measure_affine_stress) except +
+                bool measure_affine_strain, bool measure_affine_stress,
+                int NLambda, vector[int] lambda_vars) except +
 
 cdef extern from "abstract_objective_function.hpp":
     cdef cppclass AbstractObjFunc:
@@ -61,7 +62,8 @@ cdef extern from "objective_function.hpp":
     cdef cppclass IneqRatioChangeObjFunc(AbstractObjFunc):
         IneqRatioChangeObjFunc() except +
         IneqRatioChangeObjFunc(int Nterms, int Ngrad, vector[double] &ratio_init, 
-                               vector[double] &delta_ratio_target, bool relative, bool change) except +
+                               vector[double] &delta_ratio_target, vector[int] &ineq, 
+                               bool relative, bool change) except +
         
         void setRatioInit(vector[double] &ratio_init)
         void objFuncTerms(vector[double] &meas, double &obj, vector[double] &terms)
@@ -85,7 +87,7 @@ cdef extern from "objective_function.hpp":
     cdef cppclass EqRatioChangeObjFunc(AbstractObjFunc):
         EqRatioChangeObjFunc() except +
         EqRatioChangeObjFunc(int Nterms, int Ngrad, vector[double] &ratio_init, 
-                               vector[double] &delta_ratio_target) except +
+                               vector[double] &delta_ratio_target, bool relative, bool change, double accuracy) except +
         
         void setRatioInit(vector[double] &ratio_init)
         void objFuncTerms(vector[double] &meas, double &obj, vector[double] &terms)
@@ -236,7 +238,8 @@ cdef class CyMeasure:
     
     def __cinit__(self, NOstrain, ostrain_nodesi, ostrain_nodesj, ostrain_bonds, ostrain_vec,
                  NOstress, ostress_bonds,
-                 measure_affine_stress, measure_affine_strain):
+                 measure_affine_stress, measure_affine_strain,
+                 NLambda, lambda_vars):
 
         cdef int c_NOstrain = NOstrain
         
@@ -253,9 +256,13 @@ cdef class CyMeasure:
 
         cdef bool c_measure_affine_stress = measure_affine_stress 
         
+        cdef int c_NLambda = NLambda
+        cdef vector[int] c_lambda_vars = np.ascontiguousarray(lambda_vars, dtype=np.int32)
+        
         self.c_meas = Measure(c_NOstrain, c_ostrain_nodesi, c_ostrain_nodesj, c_ostrain_bonds,
                                c_ostrain_vec, c_NOstress, c_ostress_bonds,
-                               c_measure_affine_strain, c_measure_affine_stress) 
+                               c_measure_affine_strain, c_measure_affine_stress,
+                             c_NLambda, c_lambda_vars) 
         
         
 cdef class CyUpdate:
@@ -347,16 +354,17 @@ cdef class CyAugIneqRatioChangeObjFunc:
 cdef class CyIneqRatioChangeObjFunc:
     cdef IneqRatioChangeObjFunc c_obj
     
-    def __cinit__(self, Nterms, Ngrad, ratio_init, delta_ratio_target, relative=True, change=True):
+    def __cinit__(self, Nterms, Ngrad, ratio_init, delta_ratio_target, ineq, relative=True, change=True):
         
         cdef int c_Nterms = Nterms
         cdef int c_Ngrad = Ngrad
         cdef vector[double] c_ratio_init = np.ascontiguousarray(ratio_init, dtype=np.double)
         cdef vector[double] c_delta_ratio_target = np.ascontiguousarray(delta_ratio_target, dtype=np.double)
+        cdef vector[int] c_ineq = np.ascontiguousarray(ineq, dtype=np.int32)
         cdef bool c_relative = relative
         cdef bool c_change = change
         
-        self.c_obj = IneqRatioChangeObjFunc(c_Nterms, c_Ngrad, c_ratio_init, c_delta_ratio_target, c_relative, c_change)
+        self.c_obj = IneqRatioChangeObjFunc(c_Nterms, c_Ngrad, c_ratio_init, c_delta_ratio_target, c_ineq, c_relative, c_change)
         
         
     def setRatioInit(self, ratio_init):
@@ -485,15 +493,18 @@ cdef class CyIneqRatioChangeObjFunc:
     
 cdef class CyEqRatioChangeObjFunc:
     cdef EqRatioChangeObjFunc c_obj
-    
-    def __cinit__(self, Nterms, Ngrad, ratio_init, delta_ratio_target):
+        
+    def __cinit__(self, Nterms, Ngrad, ratio_init, delta_ratio_target, relative=True, change=True, double accuracy=1e-8):
         
         cdef int c_Nterms = Nterms
         cdef int c_Ngrad = Ngrad
         cdef vector[double] c_ratio_init = np.ascontiguousarray(ratio_init, dtype=np.double)
         cdef vector[double] c_delta_ratio_target = np.ascontiguousarray(delta_ratio_target, dtype=np.double)
+        cdef bool c_relative = relative
+        cdef bool c_change = change
+        cdef double c_accuracy = accuracy;
         
-        self.c_obj = EqRatioChangeObjFunc(c_Nterms, c_Ngrad, c_ratio_init, c_delta_ratio_target)
+        self.c_obj = EqRatioChangeObjFunc(c_Nterms, c_Ngrad, c_ratio_init, c_delta_ratio_target, c_relative, c_change, c_accuracy)
         
         
     def setRatioInit(self, ratio_init):

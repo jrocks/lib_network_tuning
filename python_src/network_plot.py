@@ -12,9 +12,9 @@ import matplotlib as mpl
 import seaborn as sns
 
 
-def createGIF(iname, oname, show=True):
+def createGIF(iname, oname, show=True, delay=5):
     
-    os.system("convert -delay 5 -loop 0 {0} {1}".format(iname, oname))
+    os.system("convert -delay {0} -loop 0 {1} {2}".format(delay, iname, oname))
 
     if show:
         IMG_TAG = """<img src="data:image/gif;base64,{0}" alt="some_text">"""
@@ -32,7 +32,7 @@ blue = "#377eb8"
 red = "#e41a1c"
 
 
-def show_network(ax, net, disp=None, strain=None, styles={}, box_mult=1.0):
+def show_network(ax, net, disp=None, strain=None, styles={}, box_mult=1.0, periodic=True, oriented=False, alpha=0.8):
 
         
     boxsize=0.5
@@ -81,8 +81,6 @@ def show_network(ax, net, disp=None, strain=None, styles={}, box_mult=1.0):
     edges = []
     edge_index = []
     
-    #change to showing 9 copies of networks
-
     for i in range(NE):
         posi = node_pos[DIM*edgei[i]:DIM*edgei[i]+DIM]+disp[DIM*edgei[i]:DIM*edgei[i]+DIM]
         posj = node_pos[DIM*edgej[i]:DIM*edgej[i]+DIM]+disp[DIM*edgej[i]:DIM*edgej[i]+DIM]
@@ -103,29 +101,31 @@ def show_network(ax, net, disp=None, strain=None, styles={}, box_mult=1.0):
         edges.append([tuple(posi),tuple(posi+bvec)])    
         edge_index.append(i)
         
-        edges.append([tuple(posi+np.array([1.0, 0.0])),tuple(posi+bvec+np.array([1.0, 0.0]))])    
-        edge_index.append(i)
+        if periodic:
         
-        edges.append([tuple(posi+np.array([1.0, -1.0])),tuple(posi+bvec+np.array([1.0, -1.0]))])    
-        edge_index.append(i)
-        
-        edges.append([tuple(posi+np.array([0.0, -1.0])),tuple(posi+bvec+np.array([0.0, -1.0]))])    
-        edge_index.append(i)
-        
-        edges.append([tuple(posi+np.array([-1.0, -1.0])),tuple(posi+bvec+np.array([-1.0, -1.0]))])    
-        edge_index.append(i)
-        
-        edges.append([tuple(posi+np.array([-1.0, 0.0])),tuple(posi+bvec+np.array([-1.0, 0.0]))])    
-        edge_index.append(i)
-        
-        edges.append([tuple(posi+np.array([-1.0, 1.0])),tuple(posi+bvec+np.array([-1.0, 1.0]))])    
-        edge_index.append(i)
-        
-        edges.append([tuple(posi+np.array([0.0, 1.0])),tuple(posi+bvec+np.array([0.0, 1.0]))])    
-        edge_index.append(i)
-        
-        edges.append([tuple(posi+np.array([1.0, 1.0])),tuple(posi+bvec+np.array([1.0, 1.0]))])    
-        edge_index.append(i)
+            edges.append([tuple(posi+np.array([1.0, 0.0])),tuple(posi+bvec+np.array([1.0, 0.0]))])    
+            edge_index.append(i)
+
+            edges.append([tuple(posi+np.array([1.0, -1.0])),tuple(posi+bvec+np.array([1.0, -1.0]))])    
+            edge_index.append(i)
+
+            edges.append([tuple(posi+np.array([0.0, -1.0])),tuple(posi+bvec+np.array([0.0, -1.0]))])    
+            edge_index.append(i)
+
+            edges.append([tuple(posi+np.array([-1.0, -1.0])),tuple(posi+bvec+np.array([-1.0, -1.0]))])    
+            edge_index.append(i)
+
+            edges.append([tuple(posi+np.array([-1.0, 0.0])),tuple(posi+bvec+np.array([-1.0, 0.0]))])    
+            edge_index.append(i)
+
+            edges.append([tuple(posi+np.array([-1.0, 1.0])),tuple(posi+bvec+np.array([-1.0, 1.0]))])    
+            edge_index.append(i)
+
+            edges.append([tuple(posi+np.array([0.0, 1.0])),tuple(posi+bvec+np.array([0.0, 1.0]))])    
+            edge_index.append(i)
+
+            edges.append([tuple(posi+np.array([1.0, 1.0])),tuple(posi+bvec+np.array([1.0, 1.0]))])    
+            edge_index.append(i)
 
 
     for i, b in enumerate(edges):
@@ -153,23 +153,56 @@ def show_network(ax, net, disp=None, strain=None, styles={}, box_mult=1.0):
         else:
             lw.append(2.0)
                     
+    if not oriented:
+        lc = mc.LineCollection(edges, zorder=-1, linestyle=ls, lw=lw, alpha=alpha, color=colors)  
+        ax.add_collection(lc)
+    else:
+        
+        X = []
+        Y = []
+        U = []
+        V = []
+        
+        for i, b in enumerate(edge_index):
+            posi = edges[i][0]
+            posj = edges[i][1]
+            bvec = (posj - posi) * 0.9
+            
+            
+            if b in styles and 'orient' in styles[b]:
+                if styles[b]['orient'] == 1:
+                    
+                    X.append(posi[0])
+                    Y.append(posi[1])
+                    U.append(bvec[0])
+                    V.append(bvec[1])
+                else:
+                    X.append(posj[0])
+                    Y.append(posj[1])
+                    U.append(-bvec[0])
+                    V.append(-bvec[1])
+            else:
+                X.append(posi[0])
+                Y.append(posi[1])
+                U.append(bvec[0])
+                V.append(bvec[1])
+                    
+                    
+        ax.quiver(X, Y, U, V, edgecolors=colors, facecolors=colors, units='xy', scale=1.0, linewidths=np.array(lw)/2, alpha=alpha)
     
-    lc = mc.LineCollection(edges, zorder=-1, linestyle=ls, lw=lw, alpha=0.8, color=colors)  
-    ax.add_collection(lc)
     
-    
-    if box_mult > 1.0:
-        boxL = 0.5 + padding
-        corners = np.array([[-boxL, -boxL], 
-                            [boxL, -boxL], 
-                            [boxL, boxL], 
-                            [-boxL, boxL]])
-        corners[0] = def_tensor[0:2, 0:2].dot(corners[0])
-        corners[1] = def_tensor[0:2, 0:2].dot(corners[1])
-        corners[2] = def_tensor[0:2, 0:2].dot(corners[2])
-        corners[3] = def_tensor[0:2, 0:2].dot(corners[3])
+#     if box_mult > 1.0:
+#         boxL = 0.5 + padding
+#         corners = np.array([[-boxL, -boxL], 
+#                             [boxL, -boxL], 
+#                             [boxL, boxL], 
+#                             [-boxL, boxL]])
+#         corners[0] = def_tensor[0:2, 0:2].dot(corners[0])
+#         corners[1] = def_tensor[0:2, 0:2].dot(corners[1])
+#         corners[2] = def_tensor[0:2, 0:2].dot(corners[2])
+#         corners[3] = def_tensor[0:2, 0:2].dot(corners[3])
 
-        ax.add_patch(mpatches.Polygon(corners, True, fill=False, lw=4.0, ls='dashed'))
+#         ax.add_patch(mpatches.Polygon(corners, True, fill=False, lw=4.0, ls='dashed'))
         
     
     ax.set_xlim(-box_mult*boxsize, box_mult*boxsize)
@@ -275,7 +308,7 @@ def show_vecs(ax, net, u, strain=None, stream=False):
         V[i] = u[1]
      
     if not stream:
-        ax.quiver(X, Y, U, V, units='xy', scale=1.0/2.0)
+        ax.quiver(X, Y, U, V, units='xy', scale=1.0)
     else:
         
         mag = np.sqrt(U*U + V*V) 

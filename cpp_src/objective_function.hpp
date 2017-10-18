@@ -47,16 +47,18 @@ class IneqRatioChangeObjFunc: public AbstractObjFunc {
     int Ngrad;
     XVec ratio_init;
     XVec delta_ratio_target;
+    XiVec ineq;
     bool relative, change;
     
     public:
         IneqRatioChangeObjFunc() {};
-        IneqRatioChangeObjFunc(int Nterms, int Ngrad, std::vector<double> &ratio_init, std::vector<double> &delta_ratio_target,
+        IneqRatioChangeObjFunc(int Nterms, int Ngrad, std::vector<double> &ratio_init, std::vector<double> &delta_ratio_target, std::vector<int> &ineq,
                               bool relative, bool change) {
             this->Nterms = Nterms;
             this->Ngrad = Ngrad;
             vectorToEigen(ratio_init, this->ratio_init);
             vectorToEigen(delta_ratio_target, this->delta_ratio_target);
+            vectorToEigen(ineq, this->ineq);
             
             this->relative = relative;
             this->change = change;
@@ -92,14 +94,21 @@ class EqRatioChangeObjFunc: public AbstractObjFunc {
     int Ngrad;
     XVec ratio_init;
     XVec delta_ratio_target;
+    bool relative, change;
+    double accuracy;
     
     public:
         EqRatioChangeObjFunc() {};
-        EqRatioChangeObjFunc(int Nterms, int Ngrad, std::vector<double> &ratio_init, std::vector<double> &delta_ratio_target) {
+        EqRatioChangeObjFunc(int Nterms, int Ngrad, std::vector<double> &ratio_init, std::vector<double> &delta_ratio_target,
+                              bool relative, bool change, double accuracy) {
             this->Nterms = Nterms;
             this->Ngrad = Ngrad;
             vectorToEigen(ratio_init, this->ratio_init);
             vectorToEigen(delta_ratio_target, this->delta_ratio_target);
+            
+            this->relative = relative;
+            this->change = change;
+            this->accuracy = accuracy;
         };
     
         void setRatioInit(std::vector<double> &ratio_init);

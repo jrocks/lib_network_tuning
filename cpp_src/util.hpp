@@ -1,7 +1,7 @@
 #ifndef UTIL
 #define UTIL
 
-#define DIM 2
+#define DIM 1
 
 #define BILLION 1000000000L
 #define PI 3.14159265358979323846

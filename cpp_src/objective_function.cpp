@@ -577,7 +577,7 @@ void IneqRatioChangeObjFunc::projMeas(std::vector<double> &meas, std::vector<dou
         
         
         double penalty = delta_ratio(i) - delta_ratio_target(i);
-        if((delta_ratio_target(i) > 0 && penalty < 0.0) || (delta_ratio_target(i) < 0 && penalty > 0.0)) {
+        if((ineq(i) > 0 && penalty < 0.0) || (ineq(i) < 0 && penalty > 0.0)) {
             _pmeas[i] = penalty;
         }
     }
@@ -782,17 +782,35 @@ void EqRatioChangeObjFunc::funcHess(AbstractSolver &solver, double &obj, std::ve
 }
     
 void EqRatioChangeObjFunc::projMeas(std::vector<double> &meas, std::vector<double> &pmeas) {
+        
 
     XVecMap _meas(meas.data(), meas.size());
             
-    XVec delta_ratio = _meas - ratio_init;
+    XVec delta_ratio;
     
-    XVec _pmeas = XVec::Zero(Nterms);
     
-    for(int i = 0; i < Nterms; i++) {
-        double penalty = delta_ratio(i) / delta_ratio_target(i) - 1.0;
-        _pmeas[i] = penalty;
+    if(relative && change) {
+        delta_ratio = (_meas - ratio_init).cwiseQuotient(ratio_init);
+    } else if(!relative && change) {
+        delta_ratio = _meas - ratio_init;
+    } else if(relative & !change) {
+        delta_ratio = _meas.cwiseQuotient(ratio_init);
+    } else if(!relative & !change) {
+        delta_ratio = _meas;
     }
+    
+    XVec penalty = delta_ratio - delta_ratio_target;
+    
+    XVec _pmeas = (penalty.array().abs() < accuracy).select(0.0, penalty.array());
+    
+    
+//     XVec _pmeas = XVec::Zero(Nterms);
+    
+//     for(int i = 0; i < Nterms; i++) {
+        
+//         double penalty = delta_ratio(i) - delta_ratio_target(i);
+//         _pmeas[i] = penalty;
+//     }
         
     eigenToVector(_pmeas, pmeas);
     

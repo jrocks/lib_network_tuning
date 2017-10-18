@@ -18,7 +18,10 @@ class Measure {
         
         // Affine deformation response
         bool measure_affine_strain;
-        bool measure_affine_stress;        
+        bool measure_affine_stress; 
+    
+        int NLambda;
+        XiVec lambda_vars;
 
         Measure() {
             NOstrain = 0;
@@ -31,7 +34,8 @@ class Measure {
                 std::vector<int> &ostrain_bonds,
                 std::vector<double> &ostrain_vec,
                 int NOstress, std::vector<int> &ostress_bonds,
-                bool measure_affine_strain, bool measure_affine_stress) {
+                bool measure_affine_strain, bool measure_affine_stress,
+               int NLambda, std::vector<int> lambda_vars) {
             
             this->NOstrain = NOstrain;
             this->measure_affine_strain = measure_affine_strain;
@@ -45,6 +49,9 @@ class Measure {
             vectorToEigen(ostrain_vec, this->ostrain_vec);
             
             vectorToEigen(ostress_bonds, this->ostress_bonds);
+            
+            this->NLambda = NLambda;
+            vectorToEigen(lambda_vars, this->lambda_vars);
             
             
         };

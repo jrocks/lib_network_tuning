@@ -82,6 +82,9 @@ class Measure(object):
         self.measure_affine_stress = False
         self.affine_stress_target = np.array([0], dtype=np.double) 
         
+        self.NLambda = 0
+        self.lambda_vars = np.array([0], dtype=np.int32)
+        
     def setOutputStrain(self, NOstrain, ostrain_nodesi, ostrain_nodesj, ostrain_bonds, ostrain_vec):
         self.NOstrain = NOstrain
         self.ostrain_nodesi = ostrain_nodesi
@@ -97,9 +100,15 @@ class Measure(object):
         self.measure_affine_strain = measure_affine_strain
         self.affine_strain_target = affine_strain_target
         
+    def setLambda(self, NLambda, lambda_vars):
+        self.NLambda = NLambda
+        self.lambda_vars = lambda_vars
+
+        
     def getCyMeas(self):
         return mns.CyMeasure(self.NOstrain, self.ostrain_nodesi, self.ostrain_nodesj, self.ostrain_bonds, self.ostrain_vec,
-                              self.NOstress, self.ostress_bonds, self.measure_affine_strain, self.measure_affine_stress)
+                              self.NOstress, self.ostress_bonds, self.measure_affine_strain, self.measure_affine_stress,
+                                self.NLambda, self.lambda_vars)
     
 
     
@@ -179,7 +188,7 @@ class TuneDiscLin(object):
         
         meas_init = meas
         
-        # print meas_init
+        print meas_init
         
         self.obj_func.setRatioInit(meas)
         
@@ -250,8 +259,7 @@ class TuneDiscLin(object):
                 bj = self.net.edgej[bond]
                 
                 (condition, meas) = self.solver.solveMeasUpdate(i)
-                
-    
+                    
                 if condition < 0.0:
                     n_zero += 1                    
                     continue
@@ -295,7 +303,7 @@ class TuneDiscLin(object):
             if verbose:
                 print min_move
             
-            # print obj_curr, meas_list[index]
+            print obj_curr, meas_list[index]
             
             self.K_disc[min_move['bond']] = min_move['disc']
             K_curr = self.K_max * self.K_disc / self.NDISC
