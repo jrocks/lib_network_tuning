@@ -1,5 +1,9 @@
 #include "lin_solver.hpp"
     
+Linsolver<1> ls1;
+Linsolver<2> ls1;
+Linsolver<3> ls1;
+    
 LinSolver::LinSolver(Network &nw, int NF, std::vector<Perturb> &pert, std::vector<Measure> &meas) {
         
     int p = 0;
