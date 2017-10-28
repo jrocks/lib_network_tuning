@@ -264,8 +264,7 @@ void LinSolver::isolveM(XVec &meas) {
     meas = XVec::Zero(NM_tot);
     for(int t = 0; t < NF; t++) {
         
-        meas.segment(meas_index[t], NM[t]) = (M2K[t] * K.asDiagonal() * M2K[t].transpose() + IM[t]) 
-            * M[t].transpose() * u[t];
+        meas.segment(meas_index[t], NM[t]) = (M2K[t] * (K.asDiagonal() * M2K[t].transpose()) + IM[t])  * M[t].transpose() * u[t];
         
     }
         
@@ -562,7 +561,7 @@ double LinSolver::solveMeasUpdate(int i, std::vector<std::vector<double> > &meas
         
         XVec m;
         if(NF == 1 || C1[t].nonZeros() == 0) {
-            m = (M2K[t] * K.asDiagonal() * M2K[t].transpose() + IM[t]) * 
+            m = (M2K[t] * (K.asDiagonal() * M2K[t].transpose()) + IM[t]) * 
                 (M[t].transpose() * Hinvf[t] - HinvM[t].transpose() * BU * dK.asDiagonal() * A.inverse() * BU.transpose() * Hinvf[t]);
         } else {
             XMat CHiC = C1[t].transpose() * HinvC1[t];
@@ -576,7 +575,7 @@ double LinSolver::solveMeasUpdate(int i, std::vector<std::vector<double> > &meas
 
             XVec HpiM = HinvM[t] - HinvC1[t] * CHiC * C1[t].transpose() * HinvM[t];
 
-            m = (M2K[t] * K.asDiagonal() * M2K[t].transpose() + IM[t]) * 
+            m = (M2K[t] * (K.asDiagonal() * M2K[t].transpose()) + IM[t]) * 
                 M[t].transpose() * Hpif - HpiM.transpose() * BU * dK.asDiagonal() * A.inverse() * BU.transpose() * Hpif;
         }
                 
@@ -783,7 +782,7 @@ double LinSolver::setUpdate(int i, std::vector<std::vector<double> > &meas) {
                 Hpif = - HinvC1[t] * CHiC * C0[t];
             }
 
-            m = (M2K[t] * K.asDiagonal() * M2K[t].transpose() + IM[t]) * M[t].transpose() * Hpif;
+            m = (M2K[t] * (K.asDiagonal() * M2K[t].transpose()) + IM[t]) * M[t].transpose() * Hpif;
         }
                 
         eigenToVector(m, meas[t]);
@@ -1201,7 +1200,7 @@ void LinSolver::setupMeasMat() {
 
 
 void LinSolver::setupHessian(SMat &H) {
-    H = Q * K.asDiagonal() * Q.transpose() + G;   
+    H = Q * (K.asDiagonal() * Q.transpose()) + G;   
 }
 
 void LinSolver::setupBorderedHessian(SMat &H) {

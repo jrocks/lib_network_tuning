@@ -87,7 +87,7 @@ void AugIneqRatioChangeObjFunc::res(std::vector<double> &x, LinSolver &solver, s
     }
     I.setFromTriplets(I_trip_list.begin(), I_trip_list.end());
     
-    SMat H = solver.Q * K.asDiagonal() * solver.Q.transpose() + solver.G + I;
+    SMat H = solver.Q * (K.asDiagonal() * solver.Q.transpose()) + solver.G + I;
     _res.segment(NM, NDOF) = H * u - solver.C1[0]*lambda;
     _res.segment(NM, NDOF) -= solver.f[0];
     _res.segment(NM+NDOF, NC) = -solver.C1[0].transpose() * u - solver.C0[0];
@@ -153,7 +153,7 @@ void AugIneqRatioChangeObjFunc::resGrad(std::vector<double> &x, LinSolver &solve
     }
     I.setFromTriplets(I_trip_list.begin(), I_trip_list.end());
     
-    SMat H = solver.Q * K.asDiagonal() * solver.Q.transpose() + solver.G + I;
+    SMat H = solver.Q * (K.asDiagonal() * solver.Q.transpose()) + solver.G + I;
     _res.segment(NM, NDOF) = H * u - solver.C1[0]*lambda;
     _res.segment(NM, NDOF) -= solver.f[0];
     _res.segment(NM+NDOF, NC) = -solver.C1[0].transpose() * u - solver.C0[0];
@@ -308,7 +308,7 @@ void AugIneqRatioChangeObjFunc::funcHess(std::vector<double> &x, LinSolver &solv
     XVec _res = (1.0 - (meas - ratio_init).array() / delta_ratio_target.array()).max(0.0).matrix();
     
     
-    SMat H = solver.Q * K.asDiagonal() * solver.Q.transpose() + solver.G;
+    SMat H = solver.Q * (K.asDiagonal() * solver.Q.transpose()) + solver.G;
     
     SMat block, blockT;
     
