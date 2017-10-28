@@ -6,10 +6,8 @@
 #include "perturb.hpp"
 #include "measure.hpp"
 #include "abstract_objective_function.hpp"
-#include "stdafx.h"
-#include "optimization.h"
 #include "abstract_solver.hpp"
-
+#include "lin_solver_result.hpp"
     
 class Update {
     public:
@@ -29,6 +27,7 @@ class Update {
     
 };
     
+template <int DIM>
 class LinSolver: public AbstractSolver {
     public:
     
