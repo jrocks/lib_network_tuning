@@ -700,6 +700,8 @@ double LinSolver::setUpdate(int i, std::vector<std::vector<double> > &meas) {
         
     std::cout << "Delta Max: " << delta.cwiseAbs().maxCoeff() << std::endl;
 
+    
+    // need to update HinvC1 when necessary!
     for(int t = 0; t < NF; t++) {
         Hinvf[t] += delta * f[t];
         HinvM[t] += delta * M[t];

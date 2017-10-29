@@ -3,7 +3,11 @@
     
 #include "util.hpp"
 
+template <int DIM>
 class Network {
+    
+    DEIGEN(DIM);
+    
     public:
     
         // Number of nodes
@@ -14,44 +18,45 @@ class Network {
         // Number of edges
         int NE;
         // Nodes for each edge
-        XiVec edgei;
-        XiVec edgej;
+        std::vector<int> edgei;
+        std::vector<int> edgej;
         
-        // Number of global dofs
-        int NGDOF;
         // Box dimensions
         DVec L;
     
         // Enable box dofs
         bool enable_affine;
     
+        bool fix_trans, fix_rot;
+    
         // Bond vectors
         XVec bvecij;
         // Bond equilibrium lengths
         XVec eq_length;
         // Stretch moduli / spring stiffnesses
-        XVec stretch_mod;
+        XVec K;
      
 
         Network() {};
-        Network(int NN, std::vector<double> &node_pos, 
+        Network(int NN, RXVec node_pos, 
                 int NE, std::vector<int> &edgei, std::vector<int> &edgej,
-                int NGDOF, std::vector<double> &L, bool enable_affine,
-                std::vector<double> &bvecij, std::vector<double> &eq_length, std::vector<double> &stretch_mod) {
+                RXVec L, bool enable_affine, bool fix_trans, bool fix_rot, 
+                RXVec bvecij, RXVec eq_length, RXVec K) {
             
             this->NN = NN;
             this->NE = NE;
-            this->NGDOF = NGDOF;
             this->enable_affine = enable_affine;
-
-            vectorToEigen(node_pos, this->node_pos);
-            vectorToEigen(edgei, this->edgei);
-            vectorToEigen(edgej, this->edgej);
-            vectorToEigen(L, this->L);
+            this->fix_trans = fix_trans;
+            this->fix_rot = fix_rot;
             
-            vectorToEigen(bvecij, this->bvecij);
-            vectorToEigen(eq_length, this->eq_length);
-            vectorToEigen(stretch_mod, this->stretch_mod);
+            this->node_pos = node_pos;
+            this->edgei = edgei;
+            this->edgej = edgej;
+            // this->L = L;
+            
+            this->bvecij = bvecij;
+            this->eq_length = eq_length;
+            this->K = K;
             
         }
 };
