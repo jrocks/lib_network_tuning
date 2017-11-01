@@ -7,25 +7,52 @@
 #define MEPS 2.22045e-16
 #define SQRTMEPS 1.49011745e-8
 
-    
 #include <vector>
 #include <iostream>
     
 #include <Eigen/Core>
-#include <Eigen/Geometry>
 #include <Eigen/SparseCore>
-#include <Eigen/Eigenvalues>
-#include "umfpack.h"
+#include <Eigen/Dense>
+// #include <Eigen/CholmodSupport>
 #include <Eigen/UmfPackSupport>
-#include "cholmod.h"
-#include <Eigen/CholmodSupport>
-#include <Eigen/IterativeLinearSolvers>
-
-
+    
+//Eigen typedefs
+    
+// Dimension dependent types
 #define DEIGEN(DIM) \
 typedef Eigen::Matrix<double, DIM, 1> DVec; \
-typedef Eigen::Matrix<double, DIM, DIM> DMat; 
+typedef Eigen::Matrix<double, DIM, DIM> DMat;
     
+// Dimension dependent compressed symmetric types
+#define DSYMEIGEN(DIM) \
+typedef Eigen::Matrix<double, DIM*(DIM+1)/2, 1> SDVec; \
+typedef Eigen::Matrix<double, DIM*(DIM+1)/2, DIM*(DIM+1)/2> SDMat;
+
+    
+// Variable length types
+typedef Eigen::VectorXd XVec;
+typedef Eigen::MatrixXd XMat;
+
+// Sparse types
+typedef Eigen::Triplet<double> Trip;
+typedef Eigen::SparseMatrix<double> SMat;
+typedef Eigen::SparseVector<double> SVec;
+
+// Reference types
+typedef Eigen::Ref<XVec > RXVec;
+typedef Eigen::Ref<XMat > RXMat;
+
+typedef Eigen::Ref<SVec > RSVec;
+typedef Eigen::Ref<SMat > RSMat;
+
+
+
+
+
+
+
+
+
 // Eigen typedefs
 // typedef Eigen::Matrix<double, DIM, 1> DVec;
 // typedef Eigen::Matrix<double, DIM, DIM> DMat;
@@ -34,26 +61,19 @@ typedef Eigen::Matrix<double, DIM, DIM> DMat;
 // typedef Eigen::Matrix<double, DIM*DIM, 1> D2Vec;
 // typedef Eigen::Matrix<double, DIM*DIM, DIM*DIM> D2Mat;
 
-// // Compressed symmetric matrix vector
-// typedef Eigen::Matrix<double, DIM*(DIM+1)/2, 1> SMVec;
-// typedef Eigen::Matrix<double, DIM*(DIM+1)/2, DIM*(DIM+1)/2> SMMat;
 
 
 // typedef Eigen::Matrix<double, 3, 1> Vec3d;
 
-typedef Eigen::VectorXd XVec;
-typedef Eigen::MatrixXd XMat;
+
 
 // typedef Eigen::Map<XVec > MXVec;
 // typedef Eigen::Map<XMat > MXMat;
 // typedef Eigen::Map<DMat > MDMat;
 
-typedef Eigen::Triplet<double> Trip;
-typedef Eigen::SparseMatrix<double> SMat;
-typedef Eigen::SparseVector<double> SVec;
 
-typedef Eigen::Ref<XVec > RXVec;
-typedef Eigen::Ref<XMat > RXMat;
+
+
 
 // inline void vectorToEigen(std::vector<double> &v, DVec &e) {
 //     XVecMap map(v.data(), DIM);
@@ -100,4 +120,4 @@ typedef Eigen::Ref<XMat > RXMat;
 //     } 
 // }
 
-#endif
+#endif // UTIL
