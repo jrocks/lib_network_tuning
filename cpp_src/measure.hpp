@@ -27,6 +27,9 @@ class Measure {
         // Affine deformation response
         bool measure_affine_strain;
         bool measure_affine_stress; 
+    
+        int N_olambda;
+        std::vector<int> olambdai;
 
         Measure() {
             measure_disp = false;
@@ -38,6 +41,7 @@ class Measure {
             is_tension = false;
             measure_affine_strain = false;
             measure_affine_stress = false;
+            N_olambda = 0;
         };
     
         void setOutputDOF(bool measure_disp, bool measure_strain, bool measure_lamb) {
@@ -62,11 +66,16 @@ class Measure {
     
         void setOutputAffineStrain(bool measure_affine_strain) {
             this->measure_affine_strain = measure_affine_strain;
-        }
+        };
     
         void setOutputAffineStress(bool measure_affine_stress) {
             this->measure_affine_stress = measure_affine_stress;
-        }   
+        }; 
+    
+    void setOutputLambda(int N_olambda, std::vector<int> &olambdai) {
+            this->N_olambda = N_olambda;
+            this->olambdai = olambdai;
+        };
     
 };
 

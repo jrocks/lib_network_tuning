@@ -2,178 +2,95 @@
 #define OBJFUNC
     
 #include "util.hpp"
-#include "abstract_solver.hpp"
-#include "abstract_objective_function.hpp"
-#include "lin_solver.hpp"
+#include "lin_solver_result.hpp"
 
 
-class AugIneqRatioChangeObjFunc {
+class LeastSquaresObjFunc {
+    
+    public: 
+        int NT;
+        XVec target;
 
-    XVec ratio_init;
-    XVec delta_ratio_target;
-    
-    XVec x_reg;
-    double mu;
-    
-    std::vector<XVec > fd;
-    
-    double a, b, c;
+        bool use_ineq;
+        std::vector<int> ineq;
+
+        bool use_offset;
+        XVec offset;
+
+        bool use_norm;
+        XVec norm;
     
     public:
-        AugIneqRatioChangeObjFunc() {};
-        AugIneqRatioChangeObjFunc(std::vector<double> &delta_ratio_target);
-    
-        void initialize(LinSolver &solver, std::vector<double> &x_init);
-        void setWeights(double a, double b, double c);
-        void setRegularize(double mu, std::vector<double> &x_reg);
-    
-        void res(std::vector<double> &x, LinSolver &solver, std::vector<double> &res);
-        void resGrad(std::vector<double> &x, LinSolver &solver, std::vector<double> &res,
-                                        std::vector<int> &rows, std::vector<int> &cols, std::vector<double> &vals);
-        void func(std::vector<double> &x, LinSolver &solver, double &obj);
-        void funcGrad(std::vector<double> &x, LinSolver &solver, double &obj, std::vector<double> &obj_grad);
-        void funcHess(std::vector<double> &x, LinSolver &solver,
-                                        std::vector<int> &rows, std::vector<int> &cols, std::vector<double> &vals);
-    
-        // void funcTerms(std::vector<double> &x, LinSolver &solver, std::vector<double> &terms);
-        // void funcTermsGrad(std::vector<double> &x, LinSolver &solver, std::vector<double> &terms_grad);
         
-    
-};
-    
-class IneqRatioChangeObjFunc: public AbstractObjFunc {
-
-    int Nterms;
-    int Ngrad;
-    XVec ratio_init;
-    XVec delta_ratio_target;
-    XiVec ineq;
-    bool relative, change;
-    
-    public:
-        IneqRatioChangeObjFunc() {};
-        IneqRatioChangeObjFunc(int Nterms, int Ngrad, std::vector<double> &ratio_init, std::vector<double> &delta_ratio_target, std::vector<int> &ineq,
-                              bool relative, bool change) {
-            this->Nterms = Nterms;
-            this->Ngrad = Ngrad;
-            vectorToEigen(ratio_init, this->ratio_init);
-            vectorToEigen(delta_ratio_target, this->delta_ratio_target);
-            vectorToEigen(ineq, this->ineq);
+        LeastSquaresObjFunc(int NT, RXVec target) {
+            this->NT = NT;
+            this->target = target;
             
-            this->relative = relative;
-            this->change = change;
-        };
+            use_ineq = false;
+            use_offset = false;
+            use_norm = false;
+        }
     
-        void setRatioInit(std::vector<double> &ratio_init);
+        void setIneq(std::vector<int> &ineq) {
+            this->ineq = ineq;
+        }
     
-        void res(AbstractSolver &solver, std::vector<double> &res);
-        void resGrad(AbstractSolver &solver, std::vector<double> &res, 
-                             std::vector<std::vector<double> > &res_grad);
-        void func(AbstractSolver &solver, double &obj);
-        void funcGrad(AbstractSolver &solver, double &obj, std::vector<double> &obj_grad);
-        void funcHess(AbstractSolver &solver, double &obj, std::vector<double> &obj_grad, 
-                              std::vector<std::vector<double> > &obj_hess);
+        void setOffset(RXVec offset) {
+            this->offset = offset;
+        }
     
-        void objFuncTerms(std::vector<double> &meas, double &obj, std::vector<double> &terms);
-        void objFunc(std::vector<double> &meas, double &obj);
-        void objFuncGrad(std::vector<double> &meas, std::vector<std::vector<double> > &meas_grad,
-                                           std::vector<double> &obj_grad);
+        void setNorm(RXVec norm) {
+            this->norm = norm;
+        }
     
-        void projMeas(std::vector<double> &meas, std::vector<double> &pmeas);
-        void projGrad(std::vector<double> &meas, std::vector<std::vector<double> > &meas_grad,
-                                           std::vector<std::vector<double> > &pgrad);
-    
-        void getConstraints(std::vector<double> &C, std::vector<int> &CT);
-        
-    
-};
-
-class EqRatioChangeObjFunc: public AbstractObjFunc {
-
-    int Nterms;
-    int Ngrad;
-    XVec ratio_init;
-    XVec delta_ratio_target;
-    bool relative, change;
-    double accuracy;
-    
-    public:
-        EqRatioChangeObjFunc() {};
-        EqRatioChangeObjFunc(int Nterms, int Ngrad, std::vector<double> &ratio_init, std::vector<double> &delta_ratio_target,
-                              bool relative, bool change, double accuracy) {
-            this->Nterms = Nterms;
-            this->Ngrad = Ngrad;
-            vectorToEigen(ratio_init, this->ratio_init);
-            vectorToEigen(delta_ratio_target, this->delta_ratio_target);
+        double evalFunc(LinSolverResult &result);
             
-            this->relative = relative;
-            this->change = change;
-            this->accuracy = accuracy;
-        };
-    
-        void setRatioInit(std::vector<double> &ratio_init);
-    
-        void res(AbstractSolver &solver, std::vector<double> &res);
-        void resGrad(AbstractSolver &solver, std::vector<double> &res, 
-                             std::vector<std::vector<double> > &res_grad);
-        void func(AbstractSolver &solver, double &obj);
-        void funcGrad(AbstractSolver &solver, double &obj, std::vector<double> &obj_grad);
-        void funcHess(AbstractSolver &solver, double &obj, std::vector<double> &obj_grad, 
-                              std::vector<std::vector<double> > &obj_hess);
-    
-        void objFuncTerms(std::vector<double> &meas, double &obj, std::vector<double> &terms);
-        void objFunc(std::vector<double> &meas, double &obj);
-        void objFuncGrad(std::vector<double> &meas, std::vector<std::vector<double> > &meas_grad,
-                                           std::vector<double> &obj_grad);
-    
-        void projMeas(std::vector<double> &meas, std::vector<double> &pmeas);
-        void projGrad(std::vector<double> &meas, std::vector<std::vector<double> > &meas_grad,
-                                           std::vector<std::vector<double> > &pgrad);
-    
-        void getConstraints(std::vector<double> &C, std::vector<int> &CT);
         
     
 };
 
-class IneqRatioObjFunc: public AbstractObjFunc {
-
-    int Nterms;
-    int Ngrad;
-    XVec ratio_init;
-    XVec delta_ratio_target;
+double LeastSquaresObjFunc::evalFunc(LinSolverResult &result) {
     
-    public:
-        IneqRatioObjFunc() {};
-        IneqRatioObjFunc(int Nterms, int Ngrad, std::vector<double> &ratio_init, std::vector<double> &delta_ratio_target) {
-            this->Nterms = Nterms;
-            this->Ngrad = Ngrad;
-            vectorToEigen(ratio_init, this->ratio_init);
-            vectorToEigen(delta_ratio_target, this->delta_ratio_target);
-        };
-    
-        void setRatioInit(std::vector<double> &ratio_init);
-    
-        void res(AbstractSolver &solver, std::vector<double> &res);
-        void resGrad(AbstractSolver &solver, std::vector<double> &res, 
-                             std::vector<std::vector<double> > &res_grad);
-        void func(AbstractSolver &solver, double &obj);
-        void funcGrad(AbstractSolver &solver, double &obj, std::vector<double> &obj_grad);
-        void funcHess(AbstractSolver &solver, double &obj, std::vector<double> &obj_grad, 
-                              std::vector<std::vector<double> > &obj_hess);
-    
-        void objFuncTerms(std::vector<double> &meas, double &obj, std::vector<double> &terms);
-        void objFunc(std::vector<double> &meas, double &obj);
-        void objFuncGrad(std::vector<double> &meas, std::vector<std::vector<double> > &meas_grad,
-                                           std::vector<double> &obj_grad);
-    
-        void projMeas(std::vector<double> &meas, std::vector<double> &pmeas);
-        void projGrad(std::vector<double> &meas, std::vector<std::vector<double> > &meas_grad,
-                                           std::vector<std::vector<double> > &pgrad);
-    
-        void getConstraints(std::vector<double> &C, std::vector<int> &CT);
+    XVec m(NT);
         
+    int index = 0;
+    for(int t = 0; t < result.NF; t++) {
+        m.segment(index, result.ostrain[t].size()) = result.ostrain[t];
+        index += result.ostrain[t].size();
+        
+        m.segment(index, result.ostress[t].size()) = result.ostress[t];
+        index += result.ostress[t].size();
+        
+        m.segment(index, result.affine_strain[t].size()) = result.affine_strain[t];
+        index += result.affine_strain[t].size();
+        
+        m.segment(index, result.affine_stress[t].size()) = result.affine_stress[t];
+        index += result.affine_stress[t].size();
+        
+        m.segment(index, result.olambda[t].size()) = result.olambda[t];
+        index += result.olambda[t].size();
+    }
     
-};
+    if(use_offset) {
+        m -= offset;
+    }
+    
+    if(use_norm) {
+        m = m.cwiseQuotient(norm);
+    }
+    
+    m -= target;
+    
+    if(use_ineq) {
+        for(int i = 0; i < NT; i++) {
+            if((ineq[i] == 1 && m(i) >= 0.0) || (ineq[i] == -1 && m(i) <= 0.0)) {
+                m(i) = 0.0;
+            }
+        } 
+    }
+    
+    return 0.5 * m.squaredNorm();
+    
+}
 
-
-#endif //OBJFUNC
+#endif // OBJFUNC

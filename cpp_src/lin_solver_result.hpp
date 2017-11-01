@@ -19,6 +19,8 @@ class LinSolverResult {
         std::vector<XVec > affine_strain;
         std::vector<XVec > affine_stress;
     
+        std::vector<XVec > olambda;
+    
         void setNF(int NF) {
             this->NF = NF;
             disp.resize(NF);
@@ -30,6 +32,8 @@ class LinSolverResult {
             
             affine_strain.resize(NF);
             affine_stress.resize(NF);
+            
+            olambda.resize(NF);
         }
     
         

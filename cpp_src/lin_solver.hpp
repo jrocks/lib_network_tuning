@@ -121,7 +121,6 @@ class LinSolver {
     
         void computeHessian();
     
-        void solveX(RSMat X, RXMat HiX);
         void computeInv(LinSolverState &state);
         void computeBlockInv(LinSolverState &state, 
                                      std::vector<XVec > &u, std::vector<XVec > &lamb);
@@ -238,15 +237,6 @@ void LinSolver<DIM>::computeHessian() {
 }
 
 template<int DIM>
-void LinSolver<DIM>::solveX(RSMat X, RXMat HiX) {
-    HiX = solver.solve(XMat(X));
-    if (solver.info() != Eigen::Success) {
-        std::cout << "Solving H^{-1}X failed." << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-}
-
-template<int DIM>
 void LinSolver<DIM>::computeInv(LinSolverState &state) {
     
     if(!is_computed) {
@@ -257,17 +247,34 @@ void LinSolver<DIM>::computeInv(LinSolverState &state) {
           
         if(f[t].nonZeros() > 0 && NC[t] > 0) {
             
-            solveX(f[t], state.Hif[t]);
-            solveX(C1[t], state.HiC1[t]);
+            state.Hif[t] = solver.solve(XMat(f[t]));
+            if (solver.info() != Eigen::Success) {
+                std::cout << "Solving H^{-1}f failed." << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            
+            state.HiC1[t] = solver.solve(XMat(C1[t]));
+            if (solver.info() != Eigen::Success) {
+                std::cout << "Solving H^{-1}C1 failed." << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
             
         } else if (NC[t] > 0) {
             
-            solveX(C1[t], state.HiC1[t]);
-             
+            state.HiC1[t] = solver.solve(XMat(C1[t]));
+            if (solver.info() != Eigen::Success) {
+                std::cout << "Solving H^{-1}C1 failed." << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+                         
         } else {
             
-            solveX(f[t], state.Hif[t]);
-            
+            state.Hif[t] = solver.solve(XMat(f[t]));
+            if (solver.info() != Eigen::Success) {
+                std::cout << "Solving H^{-1}f failed." << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+                        
         } 
     }
     
@@ -284,14 +291,14 @@ void LinSolver<DIM>::computeBlockInv(LinSolverState &state,
                 
         if(f[t].nonZeros() > 0 && NC[t] > 0) {
 
-            lamb[t] = (C1[t].transpose() * state.HiC1[t]).inverse() * (C1[t].transpose() * state.Hif[t] + C0[t]);
+            lamb[t] = (C1[t].transpose() * state.HiC1[t]).inverse() * (-C1[t].transpose() * state.Hif[t] + C0[t]);
             u[t] = state.Hif[t] - state.HiC1[t] * lamb[t];
             
         } else if (NC[t] > 0) {
  
             lamb[t] = (C1[t].transpose() * state.HiC1[t]).inverse() * C0[t];
             u[t] = state.HiC1[t] * lamb[t];
-            
+                        
         } else {
             u[t] = state.Hif[t];
         } 
@@ -311,8 +318,12 @@ void LinSolver<DIM>::computeInvUpdate(LinUpdate &up, LinSolverState &state1, Lin
         if(have_HiQ[up.dK_edges[i]]) {
             HiU.col(i) = HiQ[up.dK_edges[i]];
         } else {
-            
-            solveX(U.col(i), HiU.col(i));
+                        
+            HiU.col(i) = solver.solve(XMat(U.col(i)));
+            if (solver.info() != Eigen::Success) {
+                std::cout << "Solving H^{-1}U failed." << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
             
             have_HiQ[up.dK_edges[i]] = true;
             HiQ[up.dK_edges[i]] = HiU.col(i);
@@ -410,9 +421,14 @@ LinSolverResult* LinSolver<DIM>::getResult(std::vector<XVec > &u, std::vector<XV
         
         XVec ostress = m.segment(offset, meas[t].N_ostress);
         for(int i = 0; i < meas[t].N_ostress; i++) {
-            ostress[i] *= K(meas[t].ostress_edges[i]);
+            ostress(i) *= K(meas[t].ostress_edges[i]);
         }
         result->ostress[t] = ostress;
+        
+        XVec olambda(meas[t].N_olambda);
+        for(int i = 0; i < meas[t].N_olambda; i++) {
+            olambda(i) = lamb[t](meas[t].olambdai[i]);
+        }
         
     }
     
@@ -423,14 +439,14 @@ LinSolverResult* LinSolver<DIM>::getResult(std::vector<XVec > &u, std::vector<XV
 
 template<int DIM>
 LinSolverResult* LinSolver<DIM>::solve() {
-    
+        
     LinSolverState state(NF);
     computeInv(state);
-    
+        
     std::vector<XVec > u;
     std::vector<XVec > lamb;
     computeBlockInv(state, u, lamb);
-    
+        
     return getResult(u, lamb);
      
 }
@@ -711,7 +727,7 @@ void LinSolver<DIM>::setupPertMats() {
             DVec Xij = pert[t].istrain_vec.template segment<DIM>(DIM*e);
             DVec Xhatij = Xij.normalized();
 
-            C0[t](e) = -pert[t].istrain(e);
+            C0[t](e) = pert[t].istrain(e);
 
             // Choose between strain or extension implementation
             double l0 = pert[t].is_extension ? 1.0 :  Xij.norm();
@@ -747,7 +763,7 @@ void LinSolver<DIM>::setupPertMats() {
                 }
             }
 
-            C0[t].segment<DIM*(DIM+1)/2>(pert[t].N_istrain) = -Gamma;
+            C0[t].segment<DIM*(DIM+1)/2>(pert[t].N_istrain) = Gamma;
             
             for(int m = 0; m < DIM; m++) {
                 for(int n = 0; n < DIM; n++) {

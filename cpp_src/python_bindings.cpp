@@ -6,6 +6,7 @@
 #include "lin_solver.hpp"
 #include "lin_solver_state.hpp"
 #include "lin_solver_result.hpp"
+#include "objective_function.hpp"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -85,9 +86,9 @@ template <int DIM> void init(py::module &m) {
     py::class_<LinSolver<DIM>>(m, (std::string("LinSolver")+std::to_string(DIM)+std::string("D")).c_str())
         .def(py::init<Network<DIM> &, int, std::vector<Perturb<DIM> > &, std::vector<Measure<DIM> > &>())
         .def("solve", (LinSolverResult* (LinSolver<DIM>::*)()) &LinSolver<DIM>::solve, py::return_value_policy::take_ownership)
-        // .def("solve", (LinSolverResult* (LinSolver<DIM>::*)(LinUpdate &)) &LinSolver<DIM>::solve, py::return_value_policy::take_ownership)
-        // .def("solve", (LinSolverResult* (LinSolver<DIM>::*)(LinSolverState &)) &LinSolver<DIM>::solve, py::return_value_policy::take_ownership)
-        // .def("solve", (LinSolverResult* (LinSolver<DIM>::*)(LinUpdate &, LinSolverState &)) &LinSolver<DIM>::solve, py::return_value_policy::take_ownership)
+        .def("solve", (LinSolverResult* (LinSolver<DIM>::*)(LinUpdate &)) &LinSolver<DIM>::solve, py::return_value_policy::take_ownership)
+        .def("solve", (LinSolverResult* (LinSolver<DIM>::*)(LinSolverState &)) &LinSolver<DIM>::solve, py::return_value_policy::take_ownership)
+        .def("solve", (LinSolverResult* (LinSolver<DIM>::*)(LinUpdate &, LinSolverState &)) &LinSolver<DIM>::solve, py::return_value_policy::take_ownership)
         .def("getSolverState", &LinSolver<DIM>::getSolverState, py::return_value_policy::take_ownership)
         .def("updateSolverState", &LinSolver<DIM>::updateSolverState, py::return_value_policy::take_ownership)
         .def("setK", &LinSolver<DIM>::setK)
@@ -147,7 +148,8 @@ PYBIND11_MODULE(network_solver, m) {
         .def_readonly("ostrain", &LinSolverResult::ostrain)
         .def_readonly("ostress", &LinSolverResult::ostress)
         .def_readonly("affine_strain", &LinSolverResult::affine_strain)
-        .def_readonly("affine_stress", &LinSolverResult::affine_stress);
+        .def_readonly("affine_stress", &LinSolverResult::affine_stress)
+        .def_readonly("olambda", &LinSolverResult::olambda);
     
     py::class_<LinUpdate>(m, "LinUpdate")
         .def(py::init<int, std::vector<int> &, RXVec>())
@@ -155,7 +157,7 @@ PYBIND11_MODULE(network_solver, m) {
         .def_readwrite("dK_edges", &LinUpdate::dK_edges)
         .def_readwrite("dK", &LinUpdate::dK);
     
-    py::class_<LinSolverState>(m, "LinUpdate")
+    py::class_<LinSolverState>(m, "LinSolverState")
         .def(py::init<int>())
         .def_readonly("hess_update", &LinSolverState::hess_update)
         .def_readonly("K", &LinSolverState::K)
@@ -163,5 +165,21 @@ PYBIND11_MODULE(network_solver, m) {
         .def_readonly("dHi", &LinSolverState::dHi)
         .def_readonly("HiC1", &LinSolverState::HiC1)
         .def_readonly("Hif", &LinSolverState::Hif);
+    
+    
+    py::class_<LeastSquaresObjFunc>(m, "LeastSquaresObjFunc")
+        .def(py::init<int, RXVec>())
+        .def("setIneq", &LeastSquaresObjFunc::setIneq)
+        .def("setOffset", &LeastSquaresObjFunc::setOffset)
+        .def("setNorm", &LeastSquaresObjFunc::setNorm)
+        .def("evalFunc", &LeastSquaresObjFunc::evalFunc)
+        .def_readonly("NT", &LeastSquaresObjFunc::NT)
+        .def_readonly("target", &LeastSquaresObjFunc::target)
+        .def_readonly("use_ineq", &LeastSquaresObjFunc::use_ineq)
+        .def_readonly("ineq", &LeastSquaresObjFunc::ineq)
+        .def_readonly("use_offset", &LeastSquaresObjFunc::use_offset)
+        .def_readonly("offset", &LeastSquaresObjFunc::offset)
+        .def_readonly("use_norm", &LeastSquaresObjFunc::use_norm)
+        .def_readonly("norm", &LeastSquaresObjFunc::norm);
      
 };
