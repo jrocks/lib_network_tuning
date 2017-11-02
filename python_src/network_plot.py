@@ -41,7 +41,7 @@ def show_network(ax, net, disp=None, strain=None, styles={}, box_mult=1.0, perio
     edgei = np.copy(net.edgei)
     edgej = np.copy(net.edgej)
     node_pos = np.copy(net.node_pos)
-    DIM = net.DIM
+    DIM = net.dim
     NE = net.NE
     NN = net.NN
     L = np.copy(net.L)
@@ -215,7 +215,7 @@ def show_nodes(ax, net, nodes, disp=None, strain=None, styles={}, marker='o'):
     edgei = np.copy(net.edgei)
     edgej = np.copy(net.edgej)
     node_pos = np.copy(net.node_pos)
-    DIM = net.DIM
+    DIM = net.dim
     NE = net.NE
     NN = net.NN
     L = np.copy(net.L)
@@ -269,7 +269,7 @@ def show_vecs(ax, net, u, strain=None, stream=False):
     edgei = np.copy(net.edgei)
     edgej = np.copy(net.edgej)
     node_pos = np.copy(net.node_pos)
-    DIM = net.DIM
+    DIM = net.dim
     NE = net.NE
     NN = net.NN
     L = np.copy(net.L)

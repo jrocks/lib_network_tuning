@@ -2,60 +2,84 @@
 #define MEASURE
     
 #include "util.hpp"
-    
+   
+template <int DIM>
 class Measure {
     public:
+        static const int dim;
     
-        int NOstrain;
-        XiVec ostrain_nodesi;
-        XiVec ostrain_nodesj;
+        bool measure_disp;
+        bool measure_strain;
+        bool measure_lamb;
+    
+        int N_ostrain;
+        std::vector<int> ostrain_nodesi;
+        std::vector<int> ostrain_nodesj;
         XVec ostrain_vec;
-        XiVec ostrain_bonds;
+        // Whether to interpret strains as extensions
+        bool is_extension;
 
-        int NOstress;
-        XiVec ostress_bonds;
+        int N_ostress;
+        std::vector<int> ostress_edges;
+        // Whether to interpret stresses as tensions (stress = tension * l0)
+        bool is_tension;
     
-        
         // Affine deformation response
         bool measure_affine_strain;
         bool measure_affine_stress; 
     
-        int NLambda;
-        XiVec lambda_vars;
+        int N_olambda;
+        std::vector<int> olambdai;
 
         Measure() {
-            NOstrain = 0;
+            measure_disp = false;
+            measure_strain = false;
+            measure_lamb = false;
+            N_ostrain = 0;
+            is_extension = false;
+            N_ostress = 0;
+            is_tension = false;
             measure_affine_strain = false;
-            NOstress = 0;
             measure_affine_stress = false;
+            N_olambda = 0;
         };
     
-        Measure(int NOstrain, std::vector<int> &ostrain_nodesi, std::vector<int> &ostrain_nodesj, 
-                std::vector<int> &ostrain_bonds,
-                std::vector<double> &ostrain_vec,
-                int NOstress, std::vector<int> &ostress_bonds,
-                bool measure_affine_strain, bool measure_affine_stress,
-               int NLambda, std::vector<int> lambda_vars) {
-            
-            this->NOstrain = NOstrain;
+        void setOutputDOF(bool measure_disp, bool measure_strain, bool measure_lamb) {
+            this->measure_disp = measure_disp;
+            this->measure_strain = measure_strain;
+            this->measure_lamb = measure_lamb;
+        }
+    
+        void setOutputStrain(int N_ostrain, std::vector<int> &ostrain_nodesi, std::vector<int> &ostrain_nodesj, RXVec ostrain_vec, bool is_extension) {
+            this->N_ostrain = N_ostrain;
+            this->ostrain_nodesi = ostrain_nodesi;
+            this->ostrain_nodesj = ostrain_nodesj;
+            this->ostrain_vec = ostrain_vec;
+            this->is_extension = is_extension;
+        };
+    
+        void setOutputStress(int N_ostress, std::vector<int> &ostress_edges, bool is_tension) {
+            this->N_ostress = N_ostress;
+            this->ostress_edges = ostress_edges;
+            this->is_tension = is_tension;
+        };
+    
+        void setOutputAffineStrain(bool measure_affine_strain) {
             this->measure_affine_strain = measure_affine_strain;
-
-            this->NOstress = NOstress;
+        };
+    
+        void setOutputAffineStress(bool measure_affine_stress) {
             this->measure_affine_stress = measure_affine_stress;
-
-            vectorToEigen(ostrain_nodesi, this->ostrain_nodesi);
-            vectorToEigen(ostrain_nodesj, this->ostrain_nodesj);
-            vectorToEigen(ostrain_bonds, this->ostrain_bonds);
-            vectorToEigen(ostrain_vec, this->ostrain_vec);
-            
-            vectorToEigen(ostress_bonds, this->ostress_bonds);
-            
-            this->NLambda = NLambda;
-            vectorToEigen(lambda_vars, this->lambda_vars);
-            
-            
+        }; 
+    
+    void setOutputLambda(int N_olambda, std::vector<int> &olambdai) {
+            this->N_olambda = N_olambda;
+            this->olambdai = olambdai;
         };
     
 };
+
+template <int DIM>
+const int Measure<DIM>::dim = DIM;
     
-#endif
+#endif // MEASURE
