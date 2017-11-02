@@ -91,6 +91,7 @@ template <int DIM> void init(py::module &m) {
         .def("solve", (LinSolverResult* (LinSolver<DIM>::*)(LinUpdate &, LinSolverState &)) &LinSolver<DIM>::solve, py::return_value_policy::take_ownership)
         .def("getSolverState", &LinSolver<DIM>::getSolverState, py::return_value_policy::take_ownership)
         .def("updateSolverState", &LinSolver<DIM>::updateSolverState, py::return_value_policy::take_ownership)
+        .def("computeMeas", &LinSolver<DIM>::computeMeas)
         .def("setK", &LinSolver<DIM>::setK)
         .def("setAllowZero", &LinSolver<DIM>::setAllowZero)
         .def_readonly_static("dim", &LinSolver<DIM>::dim)
@@ -141,7 +142,9 @@ PYBIND11_MODULE(network_solver, m) {
     
     
     py::class_<LinSolverResult>(m, "LinSolverResult")
-        .def(py::init<>())
+        .def(py::init<int>())
+        .def_readonly("success", &LinSolverResult::success)
+        .def_readonly("msg", &LinSolverResult::msg)
         .def_readonly("disp", &LinSolverResult::disp)
         .def_readonly("strain", &LinSolverResult::strain)
         .def_readonly("lamb", &LinSolverResult::lamb)
@@ -149,7 +152,8 @@ PYBIND11_MODULE(network_solver, m) {
         .def_readonly("ostress", &LinSolverResult::ostress)
         .def_readonly("affine_strain", &LinSolverResult::affine_strain)
         .def_readonly("affine_stress", &LinSolverResult::affine_stress)
-        .def_readonly("olambda", &LinSolverResult::olambda);
+        .def_readonly("olambda", &LinSolverResult::olambda)
+        .def_readonly("meas", &LinSolverResult::meas);
     
     py::class_<LinUpdate>(m, "LinUpdate")
         .def(py::init<int, std::vector<int> &, RXVec>())

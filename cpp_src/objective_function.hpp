@@ -32,64 +32,49 @@ class LeastSquaresObjFunc {
         }
     
         void setIneq(std::vector<int> &ineq) {
+            this->use_ineq = true;
             this->ineq = ineq;
         }
     
         void setOffset(RXVec offset) {
+            this->use_offset = true;
             this->offset = offset;
         }
     
         void setNorm(RXVec norm) {
+            this->use_norm = true;
             this->norm = norm;
         }
     
-        double evalFunc(LinSolverResult &result);
+        double evalFunc(RXVec m);
             
         
     
 };
 
-double LeastSquaresObjFunc::evalFunc(LinSolverResult &result) {
+double LeastSquaresObjFunc::evalFunc(RXVec m) {
     
-    XVec m(NT);
-        
-    int index = 0;
-    for(int t = 0; t < result.NF; t++) {
-        m.segment(index, result.ostrain[t].size()) = result.ostrain[t];
-        index += result.ostrain[t].size();
-        
-        m.segment(index, result.ostress[t].size()) = result.ostress[t];
-        index += result.ostress[t].size();
-        
-        m.segment(index, result.affine_strain[t].size()) = result.affine_strain[t];
-        index += result.affine_strain[t].size();
-        
-        m.segment(index, result.affine_stress[t].size()) = result.affine_stress[t];
-        index += result.affine_stress[t].size();
-        
-        m.segment(index, result.olambda[t].size()) = result.olambda[t];
-        index += result.olambda[t].size();
-    }
+    XVec res = m;
     
     if(use_offset) {
-        m -= offset;
+        res -= offset;
     }
     
     if(use_norm) {
-        m = m.cwiseQuotient(norm);
+        res = res.cwiseQuotient(norm);
     }
     
-    m -= target;
+    res -= target;
     
     if(use_ineq) {
         for(int i = 0; i < NT; i++) {
-            if((ineq[i] == 1 && m(i) >= 0.0) || (ineq[i] == -1 && m(i) <= 0.0)) {
-                m(i) = 0.0;
+            if((ineq[i] == 1 && res(i) >= 0.0) || (ineq[i] == -1 && res(i) <= 0.0)) {
+                res(i) = 0.0;
             }
         } 
     }
     
-    return 0.5 * m.squaredNorm();
+    return 0.5 * res.squaredNorm();
     
 }
 

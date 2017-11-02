@@ -9,6 +9,7 @@
 
 #include <vector>
 #include <iostream>
+#include <numeric>
     
 #include <Eigen/Core>
 #include <Eigen/SparseCore>

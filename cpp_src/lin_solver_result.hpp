@@ -21,7 +21,12 @@ class LinSolverResult {
     
         std::vector<XVec > olambda;
     
-        void setNF(int NF) {
+        bool success;
+        std::string msg;
+    
+        XVec meas;
+    
+        LinSolverResult(int NF) {
             this->NF = NF;
             disp.resize(NF);
             strain.resize(NF);
@@ -34,6 +39,9 @@ class LinSolverResult {
             affine_stress.resize(NF);
             
             olambda.resize(NF);
+            
+            success = true;
+            msg = "initialized";
         }
     
         
