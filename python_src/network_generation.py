@@ -14,8 +14,6 @@ def loadPeriodicRandomNetwork(label, seed, DIM=2):
 
     irec = seed
 
-    seed = irec
-
     data = Dataset("{1}/{0}.nc".format(label, directory), 'r')
 
     # print data

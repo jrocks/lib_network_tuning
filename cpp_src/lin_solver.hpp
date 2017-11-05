@@ -17,6 +17,9 @@ class LinUpdate {
         std::vector<int> dK_edges;
         XVec dK;
     
+    LinUpdate() {
+        NdK = 0;
+    };
     LinUpdate(int NdK, std::vector<int> &dK_edges, RXVec dK) {
         this->NdK = NdK;
         this->dK_edges = dK_edges;
@@ -125,6 +128,7 @@ class LinSolver {
                                      std::vector<XVec > &u, std::vector<XVec > &lamb, LinSolverResult &result);
         bool computeInvUpdate(LinUpdate &up, LinSolverState &state1, LinSolverState &state2, bool save, LinSolverResult &result);
         bool computeResult(std::vector<XVec > &u, std::vector<XVec > &lamb, LinSolverResult &result);
+        bool computeResult(std::vector<XVec > &u, std::vector<XVec > &lamb, LinUpdate &up, LinSolverResult &result);
             
     public:
         
@@ -213,6 +217,8 @@ void LinSolver<DIM>::setK(RXVec K) {
     this->K = K;
     
     setupHessian();
+    HiQ.resize(nw.NE);
+    have_HiQ.resize(nw.NE, false);
     is_computed = false;
 }
 
@@ -414,7 +420,7 @@ bool LinSolver<DIM>::computeInvUpdate(LinUpdate &up, LinSolverState &state1, Lin
 
 
 template<int DIM>
-bool LinSolver<DIM>::computeResult(std::vector<XVec > &u, std::vector<XVec > &lamb, LinSolverResult &result) {
+bool LinSolver<DIM>::computeResult(std::vector<XVec > &u, std::vector<XVec > &lamb, LinUpdate &up, LinSolverResult &result) {
         
     for(int t = 0; t < NF; t++ ) {
         
@@ -441,9 +447,21 @@ bool LinSolver<DIM>::computeResult(std::vector<XVec > &u, std::vector<XVec > &la
             offset += DIM*(DIM+1)/2;
         }
         
+        std::unordered_map<int,double> K_map;
+        for(int i = 0; i < meas[t].N_ostress; i++) {
+            K_map.emplace(meas[t].ostress_edges[i], K(meas[t].ostress_edges[i]));
+        }
+        
+        for(int i = 0; i < up.NdK; i++) {
+            std::unordered_map<int,double>::const_iterator got = K_map.find(up.dK_edges[i]);
+            if(got != K_map.end()) {
+                K_map.at(up.dK_edges[i]) += up.dK(i);
+            }
+        }
+        
         XVec ostress = m.segment(offset, meas[t].N_ostress);
         for(int i = 0; i < meas[t].N_ostress; i++) {
-            ostress(i) *= K(meas[t].ostress_edges[i]);
+            ostress(i) *= K_map.at(meas[t].ostress_edges[i]);
         }
         result.ostress[t] = ostress;
         
@@ -455,6 +473,14 @@ bool LinSolver<DIM>::computeResult(std::vector<XVec > &u, std::vector<XVec > &la
     }
     
     return true;
+    
+}
+
+template<int DIM>
+bool LinSolver<DIM>::computeResult(std::vector<XVec > &u, std::vector<XVec > &lamb, LinSolverResult &result) {
+        
+    LinUpdate up;
+    return computeResult(u, lamb, up, result);
     
 }
 
@@ -551,7 +577,7 @@ LinSolverResult* LinSolver<DIM>::solve(LinUpdate &up) {
         return result;
     }
     
-    if(!computeResult(u, lamb, *result)) {
+    if(!computeResult(u, lamb, up, *result)) {
         return result;
     }
     
@@ -576,7 +602,7 @@ LinSolverResult* LinSolver<DIM>::solve(LinUpdate &up, LinSolverState &state) {
         return result;
     }
     
-    if(!computeResult(u, lamb, *result)) {
+    if(!computeResult(u, lamb, up, *result)) {
         return result;
     }
     
