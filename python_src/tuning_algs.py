@@ -111,8 +111,8 @@ def tune_disc_lin_greedy(solver, obj_func, K_max, K_disc, NDISC=1, NCONVERGE=1, 
         obj_curr = obj_list[index]
 
         if verbose:
-            print(min_move.dK_edges, min_move.dK)
-            print(obj_curr, meas_list[index])
+            # print(min_move.dK_edges, min_move.dK)
+            print("Meas", meas_list[index])
 
         K_disc_curr[min_move.dK_edges] += int(min_move.dK / K_max[min_move.dK_edges])
         K_curr = K_max * K_disc_curr / NDISC
@@ -134,8 +134,7 @@ def tune_disc_lin_greedy(solver, obj_func, K_max, K_disc, NDISC=1, NCONVERGE=1, 
             converge_count = 0
 
 
-        solver.updateSolverState(min_move, state) 
-        
+        solver.updateSolverState(min_move, state)         
         
         bond = min_move.dK_edges[0]
         move_list[bond] = []

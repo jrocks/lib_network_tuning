@@ -211,6 +211,7 @@ def show_network(ax, net, disp=None, strain=None, styles={}, box_mult=1.0, perio
     
 def show_nodes(ax, net, nodes, disp=None, strain=None, styles={}, marker='o'):
     
+    nodes = list(nodes)
     
     edgei = np.copy(net.edgei)
     edgej = np.copy(net.edgej)

@@ -10,6 +10,7 @@
 #include <vector>
 #include <iostream>
 #include <numeric>
+#include <unordered_map>
     
 #include <Eigen/Core>
 #include <Eigen/SparseCore>
