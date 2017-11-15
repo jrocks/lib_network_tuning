@@ -177,6 +177,38 @@ def loadPeriodicRandomNetwork(label, seed, DIM=2):
 
     
     
+    
+def convertToFlowNetwork(net):
+    DIM = 1
+    NN = net.NN
+    NE = net.NE
+    node_pos = np.arange(0, 1, 1.0/NN)
+    edgei = net.edgei
+    edgej = net.edgej
+    
+    L = np.array([1.0])
+    
+    bvecij = np.zeros(NE, float)
+    eq_length = np.zeros(NE, float)
+    for b in range(NE):
+        bvec =  node_pos[DIM*edgej[b]:DIM*edgej[b]+DIM]-node_pos[DIM*edgei[b]:DIM*edgei[b]+DIM]
+        bvec -= np.rint(bvec / L) * L
+        bvec /= la.norm(bvec)
+        
+        eq_length[b] = 1.0
+        
+        bvecij[DIM*b:DIM*b+DIM] = bvec
+        
+        
+    fnet = ns.Network1D(NN, node_pos, NE, edgei, edgej, L)
+    fnet.setInteractions(bvecij, eq_length, np.ones(NE, float))
+    fnet.fix_trans = True
+    fnet.fix_rot = False
+        
+    return fnet
+
+    
+    
 # def chooseNodesPos(nw, pos):
     
 #     NN = nw.NN
@@ -591,34 +623,6 @@ def loadPeriodicRandomNetwork(label, seed, DIM=2):
 
 
 
-# def convertToFlowNetwork(network):
-#     DIM = 1
-#     NN = network.NN
-#     NE = network.NE
-#     node_pos = np.arange(0, 1, 1.0/NN)
-#     edgei = network.edgei
-#     edgej = network.edgej
-    
-#     stretch_mod = network.stretch_mod * network.eq_length
-
-#     L = np.array([1.0])
-    
-#     bvecij = np.zeros(NE, float)
-#     eq_length = np.zeros(NE, float)
-#     for b in range(NE):
-#         bvec =  node_pos[DIM*edgej[b]:DIM*edgej[b]+DIM]-node_pos[DIM*edgei[b]:DIM*edgei[b]+DIM]
-#         bvec -= np.rint(bvec / L) * L
-#         bvec /= la.norm(bvec)
-        
-#         eq_length[b] = 1.0
-        
-#         bvecij[DIM*b:DIM*b+DIM] = bvec
-        
-        
-#     fnw = Network(DIM, NN, node_pos, NE, edgei, edgej, DIM, L)
-#     fnw.setStretchInt(bvecij, eq_length, stretch_mod / eq_length)
-    
-#     return fnw
 
 
 

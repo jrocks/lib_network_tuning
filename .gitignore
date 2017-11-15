@@ -9,3 +9,4 @@ cython_src/*.cpp
 .ipynb_checkpoints/
 frames/
 build/
+notebooks/talk_figs

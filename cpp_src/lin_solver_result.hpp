@@ -24,6 +24,10 @@ class LinSolverResult {
         bool success;
         std::string msg;
     
+    
+        double update_det;
+    
+    
         XVec meas;
     
         LinSolverResult(int NF) {

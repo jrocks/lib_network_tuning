@@ -365,9 +365,11 @@ bool LinSolver<DIM>::computeInvUpdate(LinUpdate &up, LinSolverState &state1, Lin
     
     XMat A = up.dK.asDiagonal() * U.transpose() * HiU + XMat::Identity(up.NdK, up.NdK);
     
-    double det = fabs(A.determinant());
+    double det = A.determinant();
+    
+    result.update_det = det;
         
-    if(det < 1e-4) {
+    if(fabs(det) < 1e-4) {
         result.success = false;
         // result.msg = "det: " + std::to_string(det) + " < 1e-4";
         std::cout << result.msg << std::endl;
@@ -484,6 +486,14 @@ bool LinSolver<DIM>::computeResult(std::vector<XVec > &u, std::vector<XVec > &la
     
 }
 
+
+// template<int DIM>
+// bool LinSolver<DIM>::analyzeState(LinSolver &state, LinSolverResult &result) {
+        
+    
+    
+// }
+
 template<int DIM>
 bool LinSolver<DIM>::computeMeas(LinSolverResult &result) {
     
@@ -532,6 +542,8 @@ LinSolverResult* LinSolver<DIM>::solve() {
         return result;
     }
     
+    result->msg = "Solve successful.";
+    
     return result;
      
 }
@@ -551,6 +563,8 @@ LinSolverResult* LinSolver<DIM>::solve(LinSolverState &state) {
     if(!computeResult(u, lamb, *result)) {
         return result;
     }
+    
+    result->msg = "Solve successful.";
     
     return result;
     
@@ -581,6 +595,8 @@ LinSolverResult* LinSolver<DIM>::solve(LinUpdate &up) {
         return result;
     }
     
+    result->msg = "Solve successful.";
+    
     return result;
      
 }
@@ -605,6 +621,8 @@ LinSolverResult* LinSolver<DIM>::solve(LinUpdate &up, LinSolverState &state) {
     if(!computeResult(u, lamb, up, *result)) {
         return result;
     }
+    
+    result->msg = "Solve successful.";
     
     return result;
      

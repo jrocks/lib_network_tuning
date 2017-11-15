@@ -32,7 +32,7 @@ blue = "#377eb8"
 red = "#e41a1c"
 
 
-def show_network(ax, net, disp=None, strain=None, styles={}, box_mult=1.0, periodic=True, oriented=False, alpha=0.8):
+def show_network(ax, net, disp=None, strain=None, styles={}, box_mult=1.0, periodic=True, oriented=False, alpha=0.75):
 
         
     boxsize=0.5
@@ -209,7 +209,107 @@ def show_network(ax, net, disp=None, strain=None, styles={}, box_mult=1.0, perio
     ax.set_ylim(-box_mult*boxsize, box_mult*boxsize)
     
     
-def show_nodes(ax, net, nodes, disp=None, strain=None, styles={}, marker='o'):
+def show_facets(ax, net, facets, styles={}, periodic=False):
+    
+    DIM = net.dim
+    
+    center = 0.5 * np.ones(DIM, float)
+    
+    patches_to_facets = []
+    patches = []
+    colors = ['white' for i in range(len(facets))]
+    
+    patch_index = 0
+    for fi, facet in enumerate(facets):
+        corners = np.zeros([len(facet['nodes']), 2], float)
+
+        posi = net.node_pos[DIM*facet['nodes'][0]:DIM*facet['nodes'][0]+DIM] / net.L
+        corners[0] = posi - np.floor(posi) - center
+
+
+        for j in range(1,len(facet['nodes'])):
+            posj = net.node_pos[DIM*facet['nodes'][j]:DIM*facet['nodes'][j]+DIM] / net.L
+
+            bvec = posj - posi
+            bvec -= np.rint(bvec)
+
+            corners[j] = posi - np.floor(posi) - center + bvec
+
+            posj = posi
+
+        patches.append(mpatches.Polygon(corners))
+        
+        patches_to_facets.append(fi)
+        
+        if periodic:
+            cornersN = np.copy(corners)
+            cornersN[:, 1] += 1
+            
+            patches.append(mpatches.Polygon(cornersN))
+            patches_to_facets.append(fi)
+            
+            cornersNE = np.copy(corners)
+            cornersNE[:, 0] += 1
+            cornersNE[:, 1] += 1
+            
+            patches.append(mpatches.Polygon(cornersNE))
+            patches_to_facets.append(fi)
+            
+            cornersE = np.copy(corners)
+            cornersE[:, 0] += 1
+            
+            patches.append(mpatches.Polygon(cornersE))
+            patches_to_facets.append(fi)
+            
+            cornersSE = np.copy(corners)
+            cornersSE[:, 0] += 1
+            cornersSE[:, 1] -= 1
+            
+            patches.append(mpatches.Polygon(cornersSE))
+            patches_to_facets.append(fi)
+            
+            cornersS = np.copy(corners)
+            cornersS[:, 1] -= 1
+            
+            patches.append(mpatches.Polygon(cornersS))
+            patches_to_facets.append(fi)
+            
+            cornersSW = np.copy(corners)
+            cornersSW[:, 0] -= 1
+            cornersSW[:, 1] -= 1
+            
+            patches.append(mpatches.Polygon(cornersSW))
+            patches_to_facets.append(fi)
+            
+            
+            cornersW = np.copy(corners)
+            cornersW[:, 0] -= 1
+            
+            patches.append(mpatches.Polygon(cornersW))
+            patches_to_facets.append(fi)
+            
+            cornersNW = np.copy(corners)
+            cornersNW[:, 0] -= 1
+            cornersNW[:, 1] += 1
+            
+            patches.append(mpatches.Polygon(cornersNW))
+            patches_to_facets.append(fi)
+            
+        
+    colors = []
+    for fi in patches_to_facets:
+        
+        if fi in styles and 'color' in styles[fi]:
+            colors.append(styles[fi]['color'])
+        else:
+            colors.append('w')
+            
+            
+    pc = mc.PatchCollection(patches, color=colors, zorder=-2)
+    ax.add_collection(pc)
+    
+    
+def show_nodes(ax, net, nodes, disp=None, strain=None, styles={}, marker='o', shadow=False, shadow_offset=[0.0, 0.0]):
     
     nodes = list(nodes)
     
@@ -262,9 +362,12 @@ def show_nodes(ax, net, nodes, disp=None, strain=None, styles={}, marker='o'):
             sizes.append(styles[b]['size'])
         else:
             sizes.append(200)
-                        
+    
+    if shadow:
+        ax.scatter(np.array(x1)+np.full_like(x1, shadow_offset[0]), np.array(y1)+np.full_like(y1, shadow_offset[1]), marker=marker , s=1.25*np.array(sizes), facecolor='#636363', alpha=0.5)
+    
     ax.scatter(x1, y1, marker=marker , s=sizes, facecolor=colors, alpha=1.0)
-
+    
 def show_vecs(ax, net, u, strain=None, stream=False):
     
     edgei = np.copy(net.edgei)
@@ -329,8 +432,7 @@ def show_vecs(ax, net, u, strain=None, stream=False):
          #now, you can use x, y, gu, gv and gspeed in streamplot:
 
         ax.streamplot(xi, yi, gu, gv, density=1.0, color='k', linewidth=lw)
-        
-        
+    
         
 def scalar_field(ax, x, y, z, sigma, NGRID, L, cmap=mpl.cm.viridis):
         

@@ -113,31 +113,13 @@ template <int DIM> void init(py::module &m) {
         .def_readonly("meas", &LinSolver<DIM>::meas)
         .def_readonly("M", &LinSolver<DIM>::M);
     
-    
-        
-    
-//     py::class_<LinSolver>(m, "LinSolver")
-//         .def(py::init<Network &, int NF, std::vector<Perturb> &, std::vector<Measure> &>())
-//         .def("setK", &LinSolver::setK)
-//         .def("solve", (void (LinSolver::*)(LinSolverResult &)) &LinSolver::solve)
-//         .def("solve", (void (LinSolver::*)(LinUpdate &, LinSolverResult &)) &LinSolver::solve)
-//         .def("solve", (void (LinSolver::*)(LinSolverState &, LinSolverResult &)) &LinSolver::solve)
-//         .def("solve", (void (LinSolver::*)(LinUpdate &, LinSolverState &, LinSolverResult &)) &LinSolver::solve)
-//         .def("setSolverState", &LinSolver::setSolverState)
-//         .def("updateSolverState", &LinSolver::updateSolverState);
-    
-//     py::class_<LinUpdate>(m, "LinUpdate")
-//         .def(py::init<int, std::vector<int> &, RXVec>)
-//         .def_readwrite("NdK", &LinUpdate::NdK)
-//         .def_readwrite("dK_edges", &LinUpdate::dK_edges)
-//         .def_readwrite("dK", &LinUpdate::dK);
-    
 }
 
 PYBIND11_MODULE(network_solver, m) {
     
     
     // Initialize dimension dependent parts of code for each needed dimension
+    init<1>(m);
     init<2>(m);
     
     
@@ -153,7 +135,8 @@ PYBIND11_MODULE(network_solver, m) {
         .def_readonly("affine_strain", &LinSolverResult::affine_strain)
         .def_readonly("affine_stress", &LinSolverResult::affine_stress)
         .def_readonly("olambda", &LinSolverResult::olambda)
-        .def_readonly("meas", &LinSolverResult::meas);
+        .def_readonly("meas", &LinSolverResult::meas)
+        .def_readonly("update_det", &LinSolverResult::update_det);
     
     py::class_<LinUpdate>(m, "LinUpdate")
         .def(py::init<int, std::vector<int> &, RXVec>())
