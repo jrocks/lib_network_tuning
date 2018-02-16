@@ -10,3 +10,4 @@ cython_src/*.cpp
 frames/
 build/
 notebooks/talk_figs
+tmp

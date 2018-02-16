@@ -105,7 +105,7 @@ def get_facets_2D(net):
         else:
             facet.append(cedge[1])                
 
-    print("Number Facets:", len(facets_to_nodes))
+    # print("Number Facets:", len(facets_to_nodes))
 
     nodes_to_edges = {}
     for i in range(net.NE):

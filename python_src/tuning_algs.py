@@ -54,6 +54,8 @@ def tune_disc_lin_greedy(solver, obj_func, K_max, K_disc, NDISC=1, NCONVERGE=1, 
     n_iter = 0
     converge_count = 0
     
+    executed_moves = []
+    
     while True:
 
         if obj_curr == 0.0:
@@ -118,7 +120,8 @@ def tune_disc_lin_greedy(solver, obj_func, K_max, K_disc, NDISC=1, NCONVERGE=1, 
         K_curr = K_max * K_disc_curr / NDISC
         
         if verbose:
-            print(n_iter, "Objective function:", obj_curr, "Change:", obj_curr - obj_prev, "Percent:", 100 * (obj_curr - obj_prev) / np.abs(obj_prev), "%")
+            print(n_iter, ":", "Move", min_move.dK_edges, min_move.dK)
+            print(n_iter, ":", "Objective function:", obj_curr, "Change:", obj_curr - obj_prev, "Percent:", 100 * (obj_curr - obj_prev) / np.abs(obj_prev), "%")
                         
         if (obj_curr - obj_prev) / np.abs(obj_prev) > -tol:
             converge_count += 1
@@ -132,6 +135,7 @@ def tune_disc_lin_greedy(solver, obj_func, K_max, K_disc, NDISC=1, NCONVERGE=1, 
             K_prev = np.copy(K_curr)
             K_disc_prev = np.copy(K_disc_curr)
             converge_count = 0
+            executed_moves.append(dict(zip(min_move.dK_edges, min_move.dK)))
 
 
         solver.updateSolverState(min_move, state)         
@@ -186,6 +190,7 @@ def tune_disc_lin_greedy(solver, obj_func, K_max, K_disc, NDISC=1, NCONVERGE=1, 
     # data['max_error'] = max_error
     # data['condition'] = self.solver.getConditionNum()
     # data['obj_res'] = res
+    data['moves'] = executed_moves
 
     if obj == 0.0:
         data['success_flag'] = 0

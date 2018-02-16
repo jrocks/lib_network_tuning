@@ -4,26 +4,27 @@ import numpy.random as rand
 import scipy.sparse as sparse
 from netCDF4 import Dataset, chartostring, stringtoarr
 import itertools as it
+import shelve
 
 import network_solver as ns
 
 
-def loadPeriodicRandomNetwork(label, seed, DIM=2):
+def convert_jammed_state_to_network(label, index, DIM=2):
+
+    directory="/data1/home/rocks/data/network_states"
     
-    directory="/data1/home/rocks/data/network_states/"
+    fn = "{1}/{0}.nc".format(label, directory)
 
-    irec = seed
-
-    data = Dataset("{1}/{0}.nc".format(label, directory), 'r')
+    data = Dataset(fn, 'r')
 
     # print data
 
     NN = len(data.dimensions['NP'])
 
-    node_pos = data.variables['pos'][irec]
+    node_pos = data.variables['pos'][index]
         
-    rad = data.variables['rad'][irec]
-    box_mat = data.variables['BoxMatrix'][irec]
+    rad = data.variables['rad'][index]
+    box_mat = data.variables['BoxMatrix'][index]
 
     L = np.zeros(DIM, float)
     for d in range(DIM):
@@ -34,7 +35,6 @@ def loadPeriodicRandomNetwork(label, seed, DIM=2):
 
     edgei = []
     edgej = []
-    eq_length = []
 
     NE = 0
     edgespernode = np.zeros(NN, int)
@@ -98,7 +98,6 @@ def loadPeriodicRandomNetwork(label, seed, DIM=2):
                     NE += 1
                     edgei.append(ni)
                     edgej.append(nj)
-                    eq_length.append(l0)
                     edgespernode[ni] += 1
                     edgespernode[nj] += 1
      
@@ -117,7 +116,6 @@ def loadPeriodicRandomNetwork(label, seed, DIM=2):
                     NE += 1
                     edgei.append(ni)
                     edgej.append(nj)
-                    eq_length.append(l0)
                     edgespernode[ni] += 1
                     edgespernode[nj] += 1
                     
@@ -125,9 +123,8 @@ def loadPeriodicRandomNetwork(label, seed, DIM=2):
     node_pos_tmp = np.copy(node_pos)
     edgei_tmp = np.copy(edgei)
     edgej_tmp = np.copy(edgej)
-    eq_length_tmp = np.copy(eq_length)
 
-    index_map = range(NN)
+    index_map = list(range(NN))
     rattlers = set()
     for i in range(NN):
         if edgespernode[i] < DIM+1:
@@ -147,37 +144,71 @@ def loadPeriodicRandomNetwork(label, seed, DIM=2):
 
     edgei = []
     edgej = []
-    eq_length = []
     for i in range(NE):
         if edgei_tmp[i] not in rattlers and edgej_tmp[i] not in rattlers:
             edgei.append(rev_index_map[edgei_tmp[i]])
             edgej.append(rev_index_map[edgej_tmp[i]])
-            eq_length.append(eq_length_tmp[i])
 
     NE = len(edgei)
-
-    bvecij = np.zeros(DIM*NE, float)
-    for b in range(NE):
-        bvec =  node_pos[DIM*edgej[b]:DIM*edgej[b]+DIM]-node_pos[DIM*edgei[b]:DIM*edgei[b]+DIM]
-        bvec -= np.rint(bvec / L) * L
-        
-        bvecij[DIM*b:DIM*b+DIM] = bvec
+    
+    print("Number Rattlers:", len(rattlers))
     
     print("NN", NN)
     print("NE", NE) 
         
-    eq_length = np.array(eq_length)
-        
-    net = ns.Network2D(NN, node_pos, NE, edgei, edgej, L)
-    net.setInteractions(bvecij, eq_length, np.ones(NE, float) / eq_length)
-    net.fix_trans = True
-    net.fix_rot = False
+    net = {}
+    net['source'] = fn
+    
+    net['DIM'] = DIM
+    net['box_L'] = L
+    
+    net['NN'] = NN
+    net['node_pos'] = node_pos
+    
+    net['NE'] = NE
+    net['edgei'] = np.array(edgei)
+    net['edgej'] = np.array(edgej)
     
     return net
 
+
+def load_jammed_network(db_fn, index):
+    
+    with shelve.open(db_fn) as db:
+        net = db["{}".format(index)]
+            
+    DIM = net['DIM']
+   
+    NN = net['NN']
+    node_pos = net['node_pos']
+    L = net['box_L']
+    
+    NE = net['NE']
+    edgei = net['edgei']
+    edgej = net['edgej']
+    
+    bvecij = np.zeros(DIM*NE, float)
+    eq_length = np.zeros(NE, float)
+    for i in range(NE):
+        bvec =  node_pos[DIM*edgej[i]:DIM*edgej[i]+DIM]-node_pos[DIM*edgei[i]:DIM*edgei[i]+DIM]
+        bvec -= np.rint(bvec / L) * L
+        
+        bvecij[DIM*i:DIM*i+DIM] = bvec
+        eq_length[i] = la.norm(bvec)
     
     
+    if DIM == 2:
+        cnet = ns.Network2D(NN, node_pos, NE, edgei, edgej, L)
+    elif DIM == 3:
+        cnet = ns.Network3D(NN, node_pos, NE, edgei, edgej, L)
+        
+    cnet.setInteractions(bvecij, eq_length, np.ones(NE, float) / eq_length)
+    cnet.fix_trans = True
+    cnet.fix_rot = False
     
+    return cnet
+
+
 def convertToFlowNetwork(net):
     DIM = 1
     NN = net.NN
@@ -206,6 +237,178 @@ def convertToFlowNetwork(net):
     fnet.fix_rot = False
         
     return fnet
+
+
+# def loadPeriodicRandomNetwork(label, seed, DIM=2):
+    
+#     directory="/data1/home/rocks/data/network_states/"
+
+#     index = seed
+
+#     data = Dataset("{1}/{0}.nc".format(label, directory), 'r')
+
+#     # print data
+
+#     NN = len(data.dimensions['NP'])
+
+#     node_pos = data.variables['pos'][index]
+        
+#     rad = data.variables['rad'][index]
+#     box_mat = data.variables['BoxMatrix'][index]
+
+#     L = np.zeros(DIM, float)
+#     for d in range(DIM):
+#         L[d] = box_mat[d *(DIM+1)]
+        
+#     for i in range(NN):
+#         node_pos[DIM*i:DIM*i+DIM] *= L
+
+#     edgei = []
+#     edgej = []
+#     eq_length = []
+
+#     NE = 0
+#     edgespernode = np.zeros(NN, int)
+        
+#     gridL = np.max([int(round(NN**(1.0/DIM))/4.0), 1])
+#     NBINS = gridL**DIM
+    
+#     print("Grid Length:", gridL, "Number Bins:", NBINS, "Nodes per Bin:", 1.0 * NN / NBINS)
+    
+#     tmp = []
+#     for d in range(DIM):
+#         tmp.append(np.arange(gridL))
+    
+#     bin_to_grid = list(it.product(*tmp))
+    
+#     grid_to_bin = {x: i for i, x in enumerate(bin_to_grid)}
+    
+#     grid_links = set()
+                
+#     for i in range(NBINS):
+#         bini = bin_to_grid[i]
+#         for j in range(i+1, NBINS):
+#             binj = bin_to_grid[j]
+            
+#             link = True
+                        
+#             for d in range(DIM):
+#                 dist = bini[d] - binj[d]
+#                 dist -= np.rint(1.0*dist/gridL) * gridL
+                                
+#                 if np.abs(dist) > 1:
+#                     link = False
+                    
+#             if link:
+#                 grid_links.add(tuple(sorted([i,j])))
+      
+        
+#     bin_nodes = [[] for b in range(NBINS)]
+        
+#     for n in range(NN):
+#         pos = node_pos[DIM*n:DIM*n+DIM]
+#         ipos = tuple(np.floor(pos / L * gridL).astype(int))
+        
+#         bin_nodes[grid_to_bin[ipos]].append(n)
+                
+#     # add edges within each bin
+#     for ibin in range(NBINS):
+#         for i in range(len(bin_nodes[ibin])):
+#             for j in range(i+1,len(bin_nodes[ibin])):
+                
+#                 ni = bin_nodes[ibin][i]
+#                 nj = bin_nodes[ibin][j]
+                
+#                 posi = node_pos[DIM*ni:DIM*ni+DIM]
+#                 posj = node_pos[DIM*nj:DIM*nj+DIM]
+#                 bvec = posj - posi
+#                 bvec -= np.rint(bvec / L) * L
+#                 l0 = la.norm(bvec)
+                
+#                 if l0 < rad[ni] + rad[nj]:
+#                     NE += 1
+#                     edgei.append(ni)
+#                     edgej.append(nj)
+#                     eq_length.append(l0)
+#                     edgespernode[ni] += 1
+#                     edgespernode[nj] += 1
+     
+#     # add edge between bins
+#     for (bini, binj) in grid_links:
+#         for ni in bin_nodes[bini]:
+#             for nj in bin_nodes[binj]:
+                
+#                 posi = node_pos[DIM*ni:DIM*ni+DIM]
+#                 posj = node_pos[DIM*nj:DIM*nj+DIM]
+#                 bvec = posj - posi
+#                 bvec -= np.rint(bvec / L) * L
+#                 l0 = la.norm(bvec)
+                
+#                 if l0 < rad[ni] + rad[nj]:
+#                     NE += 1
+#                     edgei.append(ni)
+#                     edgej.append(nj)
+#                     eq_length.append(l0)
+#                     edgespernode[ni] += 1
+#                     edgespernode[nj] += 1
+                    
+                    
+#     node_pos_tmp = np.copy(node_pos)
+#     edgei_tmp = np.copy(edgei)
+#     edgej_tmp = np.copy(edgej)
+#     eq_length_tmp = np.copy(eq_length)
+
+#     index_map = range(NN)
+#     rattlers = set()
+#     for i in range(NN):
+#         if edgespernode[i] < DIM+1:
+#             print("Removing", i, edgespernode[i])
+#             index_map.remove(i)
+#             rattlers.add(i)        
+
+#     rev_index_map = -1 * np.ones(NN, int)
+#     for i in range(len(index_map)):
+#         rev_index_map[index_map[i]] = i
+
+#     NN = len(index_map)
+#     node_pos = np.zeros(DIM*NN, float)
+
+#     for i in range(NN):
+#         node_pos[DIM*i:DIM*i+DIM] = node_pos_tmp[DIM*index_map[i]:DIM*index_map[i]+DIM]
+
+#     edgei = []
+#     edgej = []
+#     eq_length = []
+#     for i in range(NE):
+#         if edgei_tmp[i] not in rattlers and edgej_tmp[i] not in rattlers:
+#             edgei.append(rev_index_map[edgei_tmp[i]])
+#             edgej.append(rev_index_map[edgej_tmp[i]])
+#             eq_length.append(eq_length_tmp[i])
+
+#     NE = len(edgei)
+
+#     bvecij = np.zeros(DIM*NE, float)
+#     for b in range(NE):
+#         bvec =  node_pos[DIM*edgej[b]:DIM*edgej[b]+DIM]-node_pos[DIM*edgei[b]:DIM*edgei[b]+DIM]
+#         bvec -= np.rint(bvec / L) * L
+        
+#         bvecij[DIM*b:DIM*b+DIM] = bvec
+    
+#     print("NN", NN)
+#     print("NE", NE) 
+        
+#     eq_length = np.array(eq_length)
+        
+#     net = ns.Network2D(NN, node_pos, NE, edgei, edgej, L)
+#     net.setInteractions(bvecij, eq_length, np.ones(NE, float) / eq_length)
+#     net.fix_trans = True
+#     net.fix_rot = False
+    
+#     return net
+
+    
+    
+    
 
     
     
@@ -290,21 +493,21 @@ def convertToFlowNetwork(net):
 		
 # 	return False
 
-# def loadFiniteRandomNetwork(label, irec):
+# def loadFiniteRandomNetwork(label, index):
     
     
 #     directory="/data1/home/rocks/data/allostery/"
 #     data = Dataset("{1}/{0}.nc".format(label, directory), 'r')
     
 #     DIM = len(data.dimensions['DIM'])
-#     NN = data.variables['NN'][irec]
-#     NDOF = data.variables['NDOF'][irec]
-#     NB = data.variables['NB'][irec]
-#     NSN = data.variables['NSN'][irec]
+#     NN = data.variables['NN'][index]
+#     NDOF = data.variables['NDOF'][index]
+#     NB = data.variables['NB'][index]
+#     NSN = data.variables['NSN'][index]
 
-#     NDOF_index = data.variables['NDOF_index'][irec]
-#     NB_index = data.variables['NB_index'][irec]
-#     NSN_index = data.variables['NSN_index'][irec]
+#     NDOF_index = data.variables['NDOF_index'][index]
+#     NB_index = data.variables['NB_index'][index]
+#     NSN_index = data.variables['NSN_index'][index]
 
 #     node_pos = data.variables['node_pos'][NDOF_index:NDOF_index+NDOF]
     
@@ -330,7 +533,7 @@ def convertToFlowNetwork(net):
 #         bvecij[DIM*b:DIM*b+DIM] = node_pos[DIM*bondj[b]:DIM*bondj[b]+DIM]-node_pos[DIM*bondi[b]:DIM*bondi[b]+DIM]
     
     
-#     # box_mat = data.variables['box_mat'][irec]
+#     # box_mat = data.variables['box_mat'][index]
 #     # L = np.zeros(DIM, float)
 
 #     # if DIM == 2:

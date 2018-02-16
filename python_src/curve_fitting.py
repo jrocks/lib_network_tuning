@@ -188,7 +188,7 @@ def min_CV(lam0, args):
 
 def min_GCV(args, bounds):
 
-    res = spo.minimize_scalar(GCV_approx_obj,bounds=bounds, args=args, method='bounded', tol=1e-4)
+    res = spo.minimize_scalar(GCV_approx_obj, bounds=bounds, args=args, method='bounded', tol=1e-4)
 
     # print res
     
@@ -225,7 +225,7 @@ def curveFitSpline(x, y, dist_param, dist="gauss", lam0=0.0, CV=True, plot=False
         
     t = np.zeros(n, float)
     t[0:k] = x[0] 
-    t[n-k-1:] = x[-1]
+    t[n-k:] = x[-1]
     t[k:n-k] = x
     
     Sigma = overlapMat(m, t, k)
@@ -267,7 +267,7 @@ def curveFitSpline(x, y, dist_param, dist="gauss", lam0=0.0, CV=True, plot=False
         
          
         
-        lam_list = np.linspace(0, 20, 32)
+        lam_list = np.linspace(0, 15, 32)
         cv_list = []
         for i in lam_list:
     #         cv_list.append(CV_obj(i, x, y, dist_param, penalty, penalty_grad, k, t, c0))
@@ -275,10 +275,17 @@ def curveFitSpline(x, y, dist_param, dist="gauss", lam0=0.0, CV=True, plot=False
          
         cv_list = np.array(cv_list)
         
-        local_min = signal.argrelmin(cv_list)[0]   
-        local_min = np.concatenate([local_min, [len(lam_list)-1]])
+        local_min = signal.argrelmin(cv_list)[0]  
+                
+        if len(local_min) > 0:
+            lam0 = lam_list[local_min[np.argmin(cv_list[local_min])]]
+        else:
+            lam0 = lam_list[-1]
         
-        lam0 = lam_list[local_min][0]
+        
+#         local_min = np.concatenate([local_min, [len(lam_list)-1]])
+        
+#         lam0 = lam_list[local_min][0]
         
         # lam0 = lam_list[local_min][np.argmin(cv_list[local_min])]
 
@@ -346,19 +353,28 @@ def calcTransition(spline, a, b):
     flow = np.log(3.0)
     fup = -np.log(3.0)
     
-    func = lambda x: spline(x) - fcen
-    xcen = spo.brentq(func, a, b)
-    
-    func = lambda x: spline(x) - flow
+    func = lambda x: spline(x) - fcen    
     
     if func(a) < 0.0:
-        xlow = a
+        xcen = spo.newton(func, a, fprime=spline.derivative(1), fprime2=spline.derivative(2), maxiter=100000)
+    elif func(b) > 0.0:
+        xcen = spo.newton(func, b, fprime=spline.derivative(1), fprime2=spline.derivative(2), maxiter=100000)
+    else:
+        xcen = spo.brentq(func, a, b)
+    
+    func = lambda x: spline(x) - flow
+    if func(a) < 0.0:
+        xlow = spo.newton(func, a, fprime=spline.derivative(1), fprime2=spline.derivative(2), maxiter=100000)
+    elif func(b) > 0.0:
+        xlow = spo.newton(func, b, fprime=spline.derivative(1), fprime2=spline.derivative(2), maxiter=100000)
     else:
         xlow = spo.brentq(func, a, b)
     
     func = lambda x: spline(x) - fup
-    if func(b) > 0.0:
-        xup = b
+    if func(a) < 0.0:
+        xup = spo.newton(func, a, fprime=spline.derivative(1), fprime2=spline.derivative(2), maxiter=100000)
+    elif func(b) > 0.0:
+        xup = spo.newton(func, b, fprime=spline.derivative(1), fprime2=spline.derivative(2), maxiter=100000)
     else:
         xup = spo.brentq(func, a, b)
 

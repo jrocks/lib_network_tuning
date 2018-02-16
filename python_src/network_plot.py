@@ -13,16 +13,14 @@ import seaborn as sns
 
 
 def createGIF(iname, oname, show=True, delay=5):
-    
+        
     os.system("convert -delay {0} -loop 0 {1} {2}".format(delay, iname, oname))
 
     if show:
-        IMG_TAG = """<img src="data:image/gif;base64,{0}" alt="some_text">"""
-
-        data = open("{0}".format(oname), "rb").read()
-        data = data.encode("base64")
-        display(HTML(IMG_TAG.format(data)) ) 
         
+        IMG_TAG = """<img src="{0}" alt="some_text">""".format(oname)
+
+        display(HTML(IMG_TAG))
         
         
         
@@ -50,7 +48,7 @@ def show_network(ax, net, disp=None, strain=None, styles={}, box_mult=1.0, perio
     
     if disp is None:
         disp = np.zeros(DIM*NN, float)
-    
+
     if strain is None:
         strain = np.zeros([DIM, DIM], float)
     else:
@@ -209,6 +207,158 @@ def show_network(ax, net, disp=None, strain=None, styles={}, box_mult=1.0, perio
     ax.set_ylim(-box_mult*boxsize, box_mult*boxsize)
     
     
+def show_nodes(ax, net, nodes, disp=None, strain=None, styles={}, marker='o', shadow=False, shadow_offset=[0.0, 0.0]):
+    
+    
+    edgei = np.copy(net.edgei)
+    edgej = np.copy(net.edgej)
+    node_pos = np.copy(net.node_pos)
+    DIM = net.dim
+    NE = net.NE
+    NN = net.NN
+    L = np.copy(net.L)
+    center = 0.5 * np.ones(DIM, float)
+    
+    if disp is None:
+        disp = np.zeros(DIM*NN, float)
+    
+    if strain is None:
+        strain = np.zeros([DIM, DIM], float)
+
+    def_tensor = np.identity(DIM) + strain 
+        
+    x1 = []
+    y1 = []
+
+    for i in range(len(nodes)):
+        
+        posi = node_pos[DIM*nodes[i]:DIM*nodes[i]+DIM]+disp[DIM*nodes[i]:DIM*nodes[i]+DIM]
+
+        posi /= L
+
+        posi -= np.floor(posi)
+
+        posi -= center
+
+        posi = def_tensor.dot(posi)
+
+        x1.append(posi[0])
+        y1.append(posi[1])
+
+    colors = []
+    sizes = []
+
+    for b in nodes:
+        
+        if b in styles and 'color' in styles[b]:
+            colors.append(styles[b]['color'])
+        else:
+            colors.append('k')
+            
+        if b in styles and 'size' in styles[b]:
+            sizes.append(styles[b]['size'])
+        else:
+            sizes.append(200)
+    
+    if shadow:
+        ax.scatter(np.array(x1)+np.full_like(x1, shadow_offset[0]), np.array(y1)+np.full_like(y1, shadow_offset[1]), marker=marker , s=1.25*np.array(sizes), facecolor='#636363', alpha=0.5)
+    
+    ax.scatter(x1, y1, marker=marker , s=sizes, facecolor=colors, alpha=1.0)
+
+def show_vecs(ax, net, u, strain=None, stream=False):
+    
+    edgei = np.copy(net.edgei)
+    edgej = np.copy(net.edgej)
+    node_pos = np.copy(net.node_pos)
+    DIM = net.dim
+    NE = net.NE
+    NN = net.NN
+    L = np.copy(net.L)
+    center = 0.5 * np.ones(DIM, float)
+    
+    disp = np.copy(u)
+        
+    if strain is None:
+        strain = np.zeros([DIM, DIM], float)
+
+    def_tensor = np.identity(DIM) + strain 
+    
+    X = np.zeros(NN, float)
+    Y = np.zeros(NN, float)
+    U = np.zeros(NN, float)
+    V = np.zeros(NN, float)
+    
+    for i in range(NN):
+        
+        pos = node_pos[DIM*i:DIM*i+DIM]
+
+        pos /= L
+
+        pos -= np.floor(pos)
+
+        pos -= center
+        
+        pos = def_tensor.dot(pos)
+        
+        u = disp[DIM*i:DIM*i+DIM]
+        u /= L
+        
+        X[i] = pos[0]
+        Y[i] = pos[1]
+        U[i] = u[0]
+        V[i] = u[1]
+     
+    if not stream:
+        ax.quiver(X, Y, U, V, units='xy', scale=1.0, width=0.005)
+    else:
+        
+        mag = np.sqrt(U*U + V*V) 
+        
+        x = np.linspace(X.min(), X.max(), 1000)
+        y = np.linspace(Y.min(), Y.max(), 1000)
+
+        xi, yi = np.meshgrid(x,y)
+
+        #then, interpolate your data onto this grid:
+
+        gu = sp.interpolate.griddata(zip(X,Y), U, (xi,yi))
+        gv = sp.interpolate.griddata(zip(X,Y), V, (xi,yi))
+        gmag = sp.interpolate.griddata(zip(X,Y), mag, (xi,yi))
+
+        lw = 6*gmag/np.nanmax(gmag)
+         #now, you can use x, y, gu, gv and gspeed in streamplot:
+
+        ax.streamplot(xi, yi, gu, gv, density=1.0, color='k', linewidth=lw)
+        
+        
+        
+def scalar_field(ax, x, y, z, sigma, NGRID, L, cmap=mpl.cm.viridis):
+        
+    x_grid = np.linspace(0, L[0], NGRID)
+    y_grid = np.linspace(0, L[1], NGRID)
+    
+    weights = np.exp(-((x_grid[:,None,None]-x[None, None, :])**2 
+                  + (y_grid[None,:,None]-y[None, None, :])**2) / (2.0 * sigma**2))
+    
+    z_est = np.sum(weights * z[None, None, :], axis=2) / np.sum(weights, axis=2)
+        
+#     z_est /= np.sum(np.exp(-((x_grid[:,None,None]-x[None, None, :])**2 
+#                   + (y_grid[None,:,None]-y[None, None, :])**2) / (2.0 * sigma)), axis=2)
+            
+    im = ax.imshow(z_est.T, cmap=cmap, origin='lower',
+                vmin=np.min(z_est), vmax=np.max(z_est), extent=[0, L[0], 0, L[1]])
+    im.set_interpolation('bilinear')
+    
+    return im
+
+#     cf = ax1.contourf(z_est.T, cmap=mpl.cm.Blues, levels=np.linspace(0, 1.0, 11))
+#     return cf
+        
+         
+        
+        
+        
+        
 def show_facets(ax, net, facets, styles={}, periodic=False):
     
     DIM = net.dim
@@ -307,161 +457,6 @@ def show_facets(ax, net, facets, styles={}, periodic=False):
             
     pc = mc.PatchCollection(patches, color=colors, zorder=-2)
     ax.add_collection(pc)
-    
-    
-def show_nodes(ax, net, nodes, disp=None, strain=None, styles={}, marker='o', shadow=False, shadow_offset=[0.0, 0.0]):
-    
-    nodes = list(nodes)
-    
-    edgei = np.copy(net.edgei)
-    edgej = np.copy(net.edgej)
-    node_pos = np.copy(net.node_pos)
-    DIM = net.dim
-    NE = net.NE
-    NN = net.NN
-    L = np.copy(net.L)
-    center = 0.5 * np.ones(DIM, float)
-    
-    if disp is None:
-        disp = np.zeros(DIM*NN, float)
-    
-    if strain is None:
-        strain = np.zeros([DIM, DIM], float)
-
-    def_tensor = np.identity(DIM) + strain 
-        
-    x1 = []
-    y1 = []
-
-    for i in range(len(nodes)):
-        
-        posi = node_pos[DIM*nodes[i]:DIM*nodes[i]+DIM]+disp[DIM*nodes[i]:DIM*nodes[i]+DIM]
-
-        posi /= L
-
-        posi -= np.floor(posi)
-
-        posi -= center
-
-        posi = def_tensor.dot(posi)
-
-        x1.append(posi[0])
-        y1.append(posi[1])
-
-    colors = []
-    sizes = []
-
-    for b in nodes:
-        
-        if b in styles and 'color' in styles[b]:
-            colors.append(styles[b]['color'])
-        else:
-            colors.append('k')
-            
-        if b in styles and 'size' in styles[b]:
-            sizes.append(styles[b]['size'])
-        else:
-            sizes.append(200)
-    
-    if shadow:
-        ax.scatter(np.array(x1)+np.full_like(x1, shadow_offset[0]), np.array(y1)+np.full_like(y1, shadow_offset[1]), marker=marker , s=1.25*np.array(sizes), facecolor='#636363', alpha=0.5)
-    
-    ax.scatter(x1, y1, marker=marker , s=sizes, facecolor=colors, alpha=1.0)
-    
-def show_vecs(ax, net, u, strain=None, stream=False):
-    
-    edgei = np.copy(net.edgei)
-    edgej = np.copy(net.edgej)
-    node_pos = np.copy(net.node_pos)
-    DIM = net.dim
-    NE = net.NE
-    NN = net.NN
-    L = np.copy(net.L)
-    center = 0.5 * np.ones(DIM, float)
-    
-    disp = np.copy(u)
-        
-    if strain is None:
-        strain = np.zeros([DIM, DIM], float)
-
-    def_tensor = np.identity(DIM) + strain 
-    
-    X = np.zeros(NN, float)
-    Y = np.zeros(NN, float)
-    U = np.zeros(NN, float)
-    V = np.zeros(NN, float)
-    
-    for i in range(NN):
-        
-        pos = node_pos[DIM*i:DIM*i+DIM]
-
-        pos /= L
-
-        pos -= np.floor(pos)
-
-        pos -= center
-        
-        pos = def_tensor.dot(pos)
-        
-        u = disp[DIM*i:DIM*i+DIM]
-        u /= L
-        
-        X[i] = pos[0]
-        Y[i] = pos[1]
-        U[i] = u[0]
-        V[i] = u[1]
-     
-    if not stream:
-        ax.quiver(X, Y, U, V, units='xy', scale=1.0)
-    else:
-        
-        mag = np.sqrt(U*U + V*V) 
-        
-        x = np.linspace(X.min(), X.max(), 1000)
-        y = np.linspace(Y.min(), Y.max(), 1000)
-
-        xi, yi = np.meshgrid(x,y)
-
-        #then, interpolate your data onto this grid:
-
-        gu = sp.interpolate.griddata(zip(X,Y), U, (xi,yi))
-        gv = sp.interpolate.griddata(zip(X,Y), V, (xi,yi))
-        gmag = sp.interpolate.griddata(zip(X,Y), mag, (xi,yi))
-
-        lw = 6*gmag/np.nanmax(gmag)
-         #now, you can use x, y, gu, gv and gspeed in streamplot:
-
-        ax.streamplot(xi, yi, gu, gv, density=1.0, color='k', linewidth=lw)
-    
-        
-def scalar_field(ax, x, y, z, sigma, NGRID, L, cmap=mpl.cm.viridis):
-        
-    x_grid = np.linspace(0, L[0], NGRID)
-    y_grid = np.linspace(0, L[1], NGRID)
-    
-    weights = np.exp(-((x_grid[:,None,None]-x[None, None, :])**2 
-                  + (y_grid[None,:,None]-y[None, None, :])**2) / (2.0 * sigma**2))
-    
-    z_est = np.sum(weights * z[None, None, :], axis=2) / np.sum(weights, axis=2)
-        
-#     z_est /= np.sum(np.exp(-((x_grid[:,None,None]-x[None, None, :])**2 
-#                   + (y_grid[None,:,None]-y[None, None, :])**2) / (2.0 * sigma)), axis=2)
-            
-    im = ax.imshow(z_est.T, cmap=cmap, origin='lower',
-                vmin=np.min(z_est), vmax=np.max(z_est), extent=[0, L[0], 0, L[1]])
-    im.set_interpolation('bilinear')
-    
-    return im
-
-#     cf = ax1.contourf(z_est.T, cmap=mpl.cm.Blues, levels=np.linspace(0, 1.0, 11))
-#     return cf
-        
-         
-        
-        
-        
-        
-        
         
         
         
