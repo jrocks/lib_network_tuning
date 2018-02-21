@@ -355,7 +355,104 @@ def scalar_field(ax, x, y, z, sigma, NGRID, L, cmap=mpl.cm.viridis):
 #     return cf
         
          
+def show_corners(ax, net, corners, styles={}, radius=0.5, periodic=False):
+    
+    DIM = net.dim
+    
+    center = 0.5 * np.ones(DIM, float)
+    
+    patches = []
+    patches_to_corners = []
+    
+    for ci, corner in enumerate(corners):
         
+        patch_corners = np.zeros([len(corner), 2], float)
+
+        vi = corner[0]
+        posi = net.node_pos[DIM*vi:DIM*vi+DIM] / net.L
+        patch_corners[0] = posi - np.floor(posi) - center
+
+
+        for vj in range(1, len(corner)):
+            posj = net.node_pos[DIM*corner[vj]:DIM*corner[vj]+DIM] / net.L
+
+            bvec = posj - posi
+            bvec -= np.rint(bvec)
+
+            patch_corners[vj] = posi - np.floor(posi) - center + radius * bvec
+
+
+        patches.append(mpatches.Polygon(patch_corners))
+
+        patches_to_corners.append(ci)
+
+        if periodic:
+            patch_cornersN = np.copy(patch_corners)
+            patch_cornersN[:, 1] += 1
+
+            patches.append(mpatches.Polygon(patch_cornersN))
+            patches_to_corners.append(ci)
+
+            patch_cornersNE = np.copy(patch_corners)
+            patch_cornersNE[:, 0] += 1
+            patch_cornersNE[:, 1] += 1
+
+            patches.append(mpatches.Polygon(patch_cornersNE))
+            patches_to_corners.append(ci)
+
+            patch_cornersE = np.copy(patch_corners)
+            patch_cornersE[:, 0] += 1
+
+            patches.append(mpatches.Polygon(patch_cornersE))
+            patches_to_corners.append(ci)
+
+            patch_cornersSE = np.copy(patch_corners)
+            patch_cornersSE[:, 0] += 1
+            patch_cornersSE[:, 1] -= 1
+
+            patches.append(mpatches.Polygon(patch_cornersSE))
+            patches_to_corners.append(ci)
+
+            patch_cornersS = np.copy(patch_corners)
+            patch_cornersS[:, 1] -= 1
+
+            patches.append(mpatches.Polygon(patch_cornersS))
+            patches_to_corners.append(ci)
+
+            patch_cornersSW = np.copy(patch_corners)
+            patch_cornersSW[:, 0] -= 1
+            patch_cornersSW[:, 1] -= 1
+
+            patches.append(mpatches.Polygon(patch_cornersSW))
+            patches_to_corners.append(ci)
+
+
+            patch_cornersW = np.copy(patch_corners)
+            patch_cornersW[:, 0] -= 1
+
+            patches.append(mpatches.Polygon(patch_cornersW))
+            patches_to_corners.append(ci)
+
+            patch_cornersNW = np.copy(patch_corners)
+            patch_cornersNW[:, 0] -= 1
+            patch_cornersNW[:, 1] += 1
+
+            patches.append(mpatches.Polygon(patch_cornersNW))
+            patches_to_corners.append(ci)
+                            
+        
+    colors = []
+    for ci in patches_to_corners:
+        
+        if ci in styles and 'color' in styles[ci]:
+            colors.append(styles[ci]['color'])
+        else:
+            colors.append('b')
+            
+            
+    pc = mc.PatchCollection(patches, color=colors, zorder=-2)
+    ax.add_collection(pc)
+   
         
         
         

@@ -1,3 +1,8 @@
+import os, sys
+
+sys.path.insert(0, '../')
+sys.path.insert(0, '../python_src/')
+
 import numpy as np
 import numpy.linalg as la
 import numpy.random as rand
@@ -207,6 +212,55 @@ def load_jammed_network(db_fn, index):
     cnet.fix_rot = False
     
     return cnet
+
+def make_finite(net):
+    
+    DIM = net.dim
+    NN = net.NN
+    node_pos = net.node_pos
+    L = net.L
+    fix_trans = net.fix_trans
+    fix_rot = net.fix_rot
+    
+    NE = net.NE
+    edgei = net.edgei
+    edgej = net.edgej
+    bvecij = net.bvecij
+    eq_length = net.eq_length
+    K = net.K
+    
+    NE_tmp = 0
+    edgei_tmp = []
+    edgej_tmp = []
+    bvecij_tmp = []
+    eq_length_tmp = []
+    K_tmp = []
+    
+    for b in range(NE):
+        posi = node_pos[DIM*edgei[b]:DIM*edgei[b]+DIM]
+        bvec = bvecij[DIM*b:DIM*b+DIM]
+        
+        posj = posi + bvec
+        
+        if (posj <= L).all() and (posj >= 0.0).all():
+            NE_tmp += 1
+            edgei_tmp.append(edgei[b])
+            edgej_tmp.append(edgej[b])
+            bvecij_tmp.extend(bvec)
+            eq_length_tmp.append(eq_length[b])
+            K_tmp.append(K[b])
+            
+    if DIM == 2:
+        cnet = ns.Network2D(NN, np.array(node_pos), NE_tmp, edgei_tmp, edgej_tmp, np.array(L))
+    elif DIM == 3:
+        cnet = ns.Network3D(NN, np.array(node_pos), NE_tmp, edgei_tmp, edgej_tmp, np.array(L))
+        
+    cnet.setInteractions(np.array(bvecij_tmp), np.array(eq_length_tmp), np.array(K_tmp))
+    cnet.fix_trans = fix_trans
+    cnet.fix_rot = fix_rot
+    
+    return cnet
+            
 
 
 def convertToFlowNetwork(net):

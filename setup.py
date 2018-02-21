@@ -5,7 +5,6 @@ import setuptools
 
 __version__ = '0.0.1'
 
-
 class get_pybind_include(object):
     """Helper class to determine the pybind11 include path
     The purpose of this class is to postpone importing pybind11
@@ -27,13 +26,12 @@ ext_modules = [
         include_dirs=[
             # Path to pybind11 headers
             get_pybind_include(),
-            get_pybind_include(user=True)
+            get_pybind_include(user=True)            
         ],
         libraries=["m", "cholmod", "umfpack"],
         language='c++'
     ),
 ]
-
 
 # As of Python 3.6, CCompiler has a `has_flag` method.
 # cf http://bugs.python.org/issue26689
