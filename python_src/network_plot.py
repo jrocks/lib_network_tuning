@@ -207,6 +207,54 @@ def show_network(ax, net, disp=None, strain=None, styles={}, box_mult=1.0, perio
     ax.set_ylim(-box_mult*boxsize, box_mult*boxsize)
     
     
+def show_oriented_nodes(ax, net, nodes, orientation, styles={}, shadow=False):
+    
+    edgei = np.copy(net.edgei)
+    edgej = np.copy(net.edgej)
+    node_pos = np.copy(net.node_pos)
+    DIM = net.dim
+    L = np.copy(net.L)
+    center = 0.5 * np.ones(DIM, float)
+    
+    for b in nodes:
+        
+        if b in styles and 'color' in styles[b]:
+            color = styles[b]['color']
+        else:
+            color = 'k'
+            
+        if b in styles and 'size' in styles[b]:
+            size = styles[b]['size']
+        else:
+            size = 200
+            
+        if b in styles and 'sign' in styles[b]:
+            sign = styles[b]['sign']
+        else:
+            sign = 1
+        
+        posi = node_pos[DIM*b:DIM*b+DIM] / L
+        posj = node_pos[DIM*orientation[b]:DIM*orientation[b]+DIM] / L
+
+        bvec = posj - posi
+        bvec -= np.rint(bvec)
+        
+        bvec *= sign
+        
+        angle = np.degrees(np.arctan2(bvec[1], bvec[0]))+30.0
+                
+        posi -= np.floor(posi)
+        posi -= center
+        
+        x = [posi[0]]
+        y = [posi[1]]
+                    
+        if shadow:
+            ax.scatter(x, y, marker=(3, 0, angle), s=1.25*size, facecolor='#636363', alpha=0.5)
+            
+        ax.scatter(x, y, marker=(3, 0, angle), s=size, facecolor=color, alpha=1.0)
+    
+    
 def show_nodes(ax, net, nodes, disp=None, strain=None, styles={}, marker='o', shadow=False, shadow_offset=[0.0, 0.0]):
     
     
