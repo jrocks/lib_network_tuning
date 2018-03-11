@@ -372,7 +372,7 @@ bool LinSolver<DIM>::computeInvUpdate(LinUpdate &up, LinSolverState &state1, Lin
     if(fabs(det) < 1e-4) {
         result.success = false;
         // result.msg = "det: " + std::to_string(det) + " < 1e-4";
-        std::cout << result.msg << std::endl;
+        // std::cout << result.msg << std::endl;
         return false;
     }
     
