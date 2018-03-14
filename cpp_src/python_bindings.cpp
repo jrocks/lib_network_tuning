@@ -84,7 +84,8 @@ template <int DIM> void init(py::module &m) {
         .def_readwrite("measure_affine_stress", &Measure<DIM>::measure_affine_stress);
     
     py::class_<LinSolver<DIM>>(m, (std::string("LinSolver")+std::to_string(DIM)+std::string("D")).c_str())
-        .def(py::init<Network<DIM> &, int, std::vector<Perturb<DIM> > &, std::vector<Measure<DIM> > &>())
+        .def(py::init<Network<DIM> &, int, std::vector<Perturb<DIM> > &, std::vector<Measure<DIM> > &, double>(), 
+             py::arg("nw"), py::arg("NF"), py::arg("pert"), py::arg("meas"), py::arg("tol")=1e-4)
         .def("solve", (LinSolverResult* (LinSolver<DIM>::*)()) &LinSolver<DIM>::solve, py::return_value_policy::take_ownership)
         .def("solve", (LinSolverResult* (LinSolver<DIM>::*)(LinUpdate &)) &LinSolver<DIM>::solve, py::return_value_policy::take_ownership)
         .def("solve", (LinSolverResult* (LinSolver<DIM>::*)(LinSolverState &)) &LinSolver<DIM>::solve, py::return_value_policy::take_ownership)
@@ -94,7 +95,8 @@ template <int DIM> void init(py::module &m) {
         .def("computeMeas", &LinSolver<DIM>::computeMeas)
         .def("setK", &LinSolver<DIM>::setK)
         .def("setAllowZero", &LinSolver<DIM>::setAllowZero)
-        .def_readonly_static("dim", &LinSolver<DIM>::dim)
+        .def_readonly("dim", &LinSolver<DIM>::dim)
+        .def_readonly("tol", &LinSolver<DIM>::tol)
         .def_readonly("nw", &LinSolver<DIM>::nw)
         .def_readonly("NDOF", &LinSolver<DIM>::NDOF)
         .def_readonly("NNDOF", &LinSolver<DIM>::NNDOF)

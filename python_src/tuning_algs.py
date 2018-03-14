@@ -4,6 +4,7 @@ import numpy.random as rand
 import numpy as np
 import numpy.random as rand
 import numpy.linalg as la
+import scipy.sparse.linalg as sparsela
 import network_solver as ns
 import itertools as it
 
@@ -155,16 +156,16 @@ def tune_disc_lin_greedy(solver, obj_func, K_max, K_disc, NDISC=1, NCONVERGE=1, 
     obj = obj_prev
     K = K_prev
     
-    # evals = self.solver.getEigenvals()
-    # if verbose:   
-    #     print evals[0:6]
-
     
     solver.setK(K)
     result = solver.solve()
     solver.computeMeas(result)
     meas_final = np.array(result.meas)
     obj_real = obj_func.evalFunc(meas_final)
+    
+    if verbose:   
+        evals = sparsela.eigsh(solver.H, k=16, return_eigenvectors=False, which='SM')
+        print(evals)
 
     # res = self.obj_func.projMeas(meas)
     if verbose:

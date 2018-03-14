@@ -37,7 +37,7 @@ class LinSolver {
     
     public:
     
-        static const int dim;
+        const int dim;
     
         // Network object
         Network<DIM> nw;
@@ -71,6 +71,9 @@ class LinSolver {
         // Eigen::CholmodSupernodalLLT<SMat > solver;
         Eigen::UmfPackLU<SMat > solver;
         bool is_computed;
+    
+        // Cutoff for denominator of updates
+        double tol;
     
     
         // Number of independent functions (pert/meas pairs)
@@ -108,7 +111,7 @@ class LinSolver {
     public:
         LinSolver(Network<DIM> &nw, int NF, 
                   std::vector<Perturb<DIM> > &pert, 
-                  std::vector<Measure<DIM> > &meas);
+                  std::vector<Measure<DIM> > &meas, double tol = 1e-4);
     
         // Set interaction strengths
         void setK(RXVec K);
@@ -151,9 +154,6 @@ class LinSolver {
         
 };
 
-template <int DIM>
-const int LinSolver<DIM>::dim = DIM;
-
 
 //////////////////////////////////////////////////////
 // Function Implementations
@@ -162,7 +162,7 @@ const int LinSolver<DIM>::dim = DIM;
 template<int DIM>
 LinSolver<DIM>::LinSolver(Network<DIM> &nw, int NF, 
                           std::vector<Perturb<DIM> > &pert, 
-                          std::vector<Measure<DIM> > &meas) {
+                          std::vector<Measure<DIM> > &meas, double tol) : dim(DIM) {
         
     int p = 0;
     for(int m = 0; m < DIM; m++) {
@@ -196,6 +196,8 @@ LinSolver<DIM>::LinSolver(Network<DIM> &nw, int NF,
     this->pert = pert;
     this->meas = meas;
     allow_zero = false;
+    
+    this->tol = tol;
     
     setupPertMats();
     setupMeasMats();
@@ -369,7 +371,7 @@ bool LinSolver<DIM>::computeInvUpdate(LinUpdate &up, LinSolverState &state1, Lin
     
     result.update_det = det;
         
-    if(fabs(det) < 1e-4) {
+    if(fabs(det) < tol) {
         result.success = false;
         // result.msg = "det: " + std::to_string(det) + " < 1e-4";
         // std::cout << result.msg << std::endl;
