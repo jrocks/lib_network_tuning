@@ -11,7 +11,7 @@ import itertools as it
 
  
     
-def tune_disc_lin_greedy(solver, obj_func, K_max, K_disc, NDISC=1, NCONVERGE=1, tol=1e-8, verbose=True):
+def tune_disc_lin_greedy(solver, obj_func, K_max, K_disc, K_fix = set(), NDISC=1, NCONVERGE=1, tol=1e-8, verbose=True):
                 
     #Set initial response ratio
     K_disc_curr = np.copy(K_disc)
@@ -44,6 +44,10 @@ def tune_disc_lin_greedy(solver, obj_func, K_max, K_disc, NDISC=1, NCONVERGE=1, 
     
     move_list = [[] for b in range(NE)]
     for b in range(NE):
+        
+        if b in K_fix:
+            continue
+        
         if K_disc_curr[b] == NDISC: 
             move_list[b].append(ns.LinUpdate(1, [b], np.array([-K_max[b] / NDISC])))
         elif K_disc_curr[b] == 0:
