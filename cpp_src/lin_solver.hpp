@@ -752,6 +752,9 @@ void LinSolver<DIM>::setupPertMats() {
         C1[t].setFromTriplets(C1_trip_list.begin(), C1_trip_list.end());
 
 
+        // May want to apply tension as a constraint instead
+        // This requires updating perturbation matrix to depend on k
+        // Will need to multiple C1 by k right before solving
         //Apply local input stress and affine input stress as forces
         f[t].resize(NDOF, 1);
         std::vector<Trip> f_trip_list;
@@ -768,6 +771,7 @@ void LinSolver<DIM>::setupPertMats() {
             // Tension already has correct units while stress must be multiplied by a length
             double l0 = pert[t].is_tension ? 1.0 : Xij.norm();
             double sigma = pert[t].istress(e) * l0;
+            // Stress is actually l0*t/V where V is converts to energy density per unit volume
             
             DVec force = sigma * Xhatij;
 
