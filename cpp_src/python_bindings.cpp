@@ -7,10 +7,19 @@
 #include "lin_solver_state.hpp"
 #include "lin_solver_result.hpp"
 #include "objective_function.hpp"
-
+    
+#ifdef USECPLEX
+#include "cplex_solver.hpp"
+#endif
+    
+#ifdef USEALGLIB
+#include "alglib_tuner.hpp"
+#endif
+    
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <pybind11/eigen.h>    
+#include <pybind11/eigen.h>
+#include <pybind11/iostream.h>
     
 namespace py = pybind11;
 
@@ -86,13 +95,15 @@ template <int DIM> void init(py::module &m) {
     py::class_<LinSolver<DIM>>(m, (std::string("LinSolver")+std::to_string(DIM)+std::string("D")).c_str())
         .def(py::init<Network<DIM> &, int, std::vector<Perturb<DIM> > &, std::vector<Measure<DIM> > &, double>(), 
              py::arg("nw"), py::arg("NF"), py::arg("pert"), py::arg("meas"), py::arg("tol")=1e-4)
-        .def("solve", (LinSolverResult* (LinSolver<DIM>::*)()) &LinSolver<DIM>::solve, py::return_value_policy::take_ownership)
-        .def("solve", (LinSolverResult* (LinSolver<DIM>::*)(LinUpdate &)) &LinSolver<DIM>::solve, py::return_value_policy::take_ownership)
-        .def("solve", (LinSolverResult* (LinSolver<DIM>::*)(LinSolverState &)) &LinSolver<DIM>::solve, py::return_value_policy::take_ownership)
-        .def("solve", (LinSolverResult* (LinSolver<DIM>::*)(LinUpdate &, LinSolverState &)) &LinSolver<DIM>::solve, py::return_value_policy::take_ownership)
-        .def("getSolverState", &LinSolver<DIM>::getSolverState, py::return_value_policy::take_ownership)
-        .def("updateSolverState", &LinSolver<DIM>::updateSolverState, py::return_value_policy::take_ownership)
+        .def("solve", (LinSolverResult (LinSolver<DIM>::*)()) &LinSolver<DIM>::solve)
+        .def("solve", (LinSolverResult (LinSolver<DIM>::*)(LinUpdate &)) &LinSolver<DIM>::solve)
+        .def("solve", (LinSolverResult (LinSolver<DIM>::*)(LinSolverState &)) &LinSolver<DIM>::solve)
+        .def("solve", (LinSolverResult (LinSolver<DIM>::*)(LinUpdate &, LinSolverState &)) &LinSolver<DIM>::solve)
+        .def("getSolverState", &LinSolver<DIM>::getSolverState)
+        .def("updateSolverState", &LinSolver<DIM>::updateSolverState)
         .def("computeMeas", &LinSolver<DIM>::computeMeas)
+        .def("solveMeas", &LinSolver<DIM>::solveMeas)
+        .def("solveMeasGrad", &LinSolver<DIM>::solveMeasGrad)
         .def("setK", &LinSolver<DIM>::setK)
         .def("setAllowZero", &LinSolver<DIM>::setAllowZero)
         .def_readonly("dim", &LinSolver<DIM>::dim)
@@ -114,6 +125,51 @@ template <int DIM> void init(py::module &m) {
         .def_readonly("f", &LinSolver<DIM>::f)
         .def_readonly("meas", &LinSolver<DIM>::meas)
         .def_readonly("M", &LinSolver<DIM>::M);
+    
+    
+#ifdef USECPLEX
+    
+    py::class_<CPLEXSolver<DIM>>(m, (std::string("CPLEXSolver")+std::to_string(DIM)+std::string("D")).c_str())
+        .def(py::init<Network<DIM> &, int, std::vector<Perturb<DIM> > &, std::vector<Measure<DIM> > &>())
+        .def("solve", (LinSolverResult (CPLEXSolver<DIM>::*)()) &CPLEXSolver<DIM>::solve, 
+             py::call_guard<py::scoped_ostream_redirect,
+                     py::scoped_estream_redirect>())
+        .def("solve", (LinSolverResult (CPLEXSolver<DIM>::*)(LinUpdate &)) &CPLEXSolver<DIM>::solve, 
+             py::call_guard<py::scoped_ostream_redirect,
+                     py::scoped_estream_redirect>())
+        .def("solveGrad", (LinSolverResult (CPLEXSolver<DIM>::*)()) &CPLEXSolver<DIM>::solveGrad)
+        .def("computeMeas", &CPLEXSolver<DIM>::computeMeas)
+        .def("setK", &CPLEXSolver<DIM>::setK)
+        .def("setUpdate", &CPLEXSolver<DIM>::setUpdate)
+        .def_readonly("dim", &CPLEXSolver<DIM>::dim)
+        .def_readonly("nw", &CPLEXSolver<DIM>::nw)
+        .def_readonly("NDOF", &CPLEXSolver<DIM>::NDOF)
+        .def_readonly("NNDOF", &CPLEXSolver<DIM>::NNDOF)
+        .def_readonly("Q", &CPLEXSolver<DIM>::Q)
+        .def_readonly("K", &CPLEXSolver<DIM>::K)
+        .def_readonly("H", &CPLEXSolver<DIM>::H)
+        .def_readonly("NF", &CPLEXSolver<DIM>::NF)
+        .def_readonly("NC", &CPLEXSolver<DIM>::NC)
+        .def_readonly("NM", &CPLEXSolver<DIM>::NM)
+        .def_readonly("pert", &CPLEXSolver<DIM>::pert)
+        .def_readonly("C1", &CPLEXSolver<DIM>::C1)
+        .def_readonly("C0", &CPLEXSolver<DIM>::C0)
+        .def_readonly("meas", &CPLEXSolver<DIM>::meas)
+        .def_readonly("M", &CPLEXSolver<DIM>::M);
+    
+    
+#endif
+    
+#ifdef USEALGLIB
+    
+    py::class_<MinChangeTuner<DIM>>(m, (std::string("MinChangeTuner")+std::to_string(DIM)+std::string("D")).c_str())
+        .def(py::init<>())
+        .def("tune", &MinChangeTuner<DIM>::tune/*, 
+             py::call_guard<py::scoped_ostream_redirect,
+                     py::scoped_estream_redirect>()*/);
+    
+#endif
+    
     
 }
 
@@ -138,6 +194,7 @@ PYBIND11_MODULE(network_solver, m) {
         .def_readonly("affine_stress", &LinSolverResult::affine_stress)
         .def_readonly("olambda", &LinSolverResult::olambda)
         .def_readonly("meas", &LinSolverResult::meas)
+        .def_readonly("meas_grad", &LinSolverResult::meas_grad)
         .def_readonly("update_det", &LinSolverResult::update_det);
     
     py::class_<LinUpdate>(m, "LinUpdate")
@@ -155,13 +212,15 @@ PYBIND11_MODULE(network_solver, m) {
         .def_readonly("HiC1", &LinSolverState::HiC1)
         .def_readonly("Hif", &LinSolverState::Hif);
     
-    
     py::class_<LeastSquaresObjFunc>(m, "LeastSquaresObjFunc")
         .def(py::init<int, RXVec>())
         .def("setIneq", &LeastSquaresObjFunc::setIneq)
         .def("setOffset", &LeastSquaresObjFunc::setOffset)
         .def("setNorm", &LeastSquaresObjFunc::setNorm)
         .def("evalFunc", &LeastSquaresObjFunc::evalFunc)
+        .def("evalGrad", &LeastSquaresObjFunc::evalGrad)
+        .def("evalRes", &LeastSquaresObjFunc::evalRes)
+        .def("evalResGrad", &LeastSquaresObjFunc::evalResGrad)
         .def_readonly("NT", &LeastSquaresObjFunc::NT)
         .def_readonly("target", &LeastSquaresObjFunc::target)
         .def_readonly("use_ineq", &LeastSquaresObjFunc::use_ineq)

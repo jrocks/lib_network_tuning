@@ -4,6 +4,8 @@
 #include "util.hpp"
 #include "lin_solver_result.hpp"
 
+#include <pybind11/pybind11.h>
+namespace py = pybind11;
 
 class LeastSquaresObjFunc {
     
@@ -46,13 +48,17 @@ class LeastSquaresObjFunc {
             this->norm = norm;
         }
     
-        double evalFunc(RXVec m);
+        XVec evalRes(RXVec& m);
+        double evalFunc(RXVec& m);
+        XMat evalResGrad(RXVec& m, RXMat& mgrad);
+        XVec evalGrad(RXVec& m, RXMat& mgrad);
+        
             
         
     
 };
 
-double LeastSquaresObjFunc::evalFunc(RXVec m) {
+XVec LeastSquaresObjFunc::evalRes(RXVec& m) {
     
     XVec res = m;
     
@@ -74,8 +80,77 @@ double LeastSquaresObjFunc::evalFunc(RXVec m) {
         } 
     }
     
+    return res;
+    
+}
+
+double LeastSquaresObjFunc::evalFunc(RXVec& m) {
+    
+    XVec res = evalRes(m);
+    
     return 0.5 * res.squaredNorm();
     
 }
+
+XMat LeastSquaresObjFunc::evalResGrad(RXVec& m, RXMat& mgrad) {
+    
+    XVec res = m;
+    
+    if(use_offset) {
+        res -= offset;
+    }
+    
+    if(use_norm) {
+        res = res.cwiseQuotient(norm);
+    }
+    
+    res -= target;
+    
+    if(use_ineq) {
+        for(int i = 0; i < NT; i++) {
+            if((ineq[i] == 1 && res(i) >= 0.0) || (ineq[i] == -1 && res(i) <= 0.0)) {
+                res(i) = 0.0;
+            }
+        } 
+    }
+    
+    XMat dresdK = XMat::Zero(mgrad.rows(), mgrad.cols());
+    for(int i = 0; i < NT; i++) {
+        if(res(i) == 0.0) {
+            continue;
+        }
+        
+        dresdK.row(i) = mgrad.row(i);
+        
+        if(use_norm) {
+            dresdK.row(i) /= norm(i);
+        }
+        
+    }
+    
+    return dresdK;
+    
+}
+
+XVec LeastSquaresObjFunc::evalGrad(RXVec& m, RXMat& mgrad) {
+    
+    XVec res = evalRes(m);
+    
+    XMat dresdK = evalResGrad(m, mgrad);
+    
+    XVec dfdK = XVec::Zero(mgrad.cols());
+    for(int i = 0; i < NT; i++) {
+        if(res(i) == 0.0) {
+            continue;
+        }
+        
+        dfdK += res(i) * dresdK.row(i);
+
+    }
+    
+    return dfdK;
+    
+}
+
 
 #endif // OBJFUNC

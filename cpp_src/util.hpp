@@ -41,14 +41,19 @@ typedef Eigen::SparseMatrix<double> SMat;
 typedef Eigen::SparseVector<double> SVec;
 
 // Reference types
-typedef Eigen::Ref<XVec > RXVec;
-typedef Eigen::Ref<XMat > RXMat;
+typedef const Eigen::Ref<const XVec > RXVec;
+typedef const Eigen::Ref<const XMat > RXMat;
 
 typedef Eigen::Ref<SVec > RSVec;
 typedef Eigen::Ref<SMat > RSMat;
 
 
+// Map types
+typedef Eigen::Map<XVec > XVecMap;
+typedef Eigen::Map<XMat > XMatMap;
 
+typedef Eigen::Map<const XVec > XVecConstMap;
+typedef Eigen::Map<const XMat > XMatConstMap;
 
 
 
@@ -75,51 +80,5 @@ typedef Eigen::Ref<SMat > RSMat;
 
 
 
-
-
-// inline void vectorToEigen(std::vector<double> &v, DVec &e) {
-//     XVecMap map(v.data(), DIM);
-//     e = map;
-// }
-
-// inline void vectorToEigen(std::vector<double> &v, XVec &e) {
-//     XVecMap map(v.data(), v.size());
-//     e = map;
-// }
-
-// inline void vectorToEigen(std::vector<int> &v, XiVec &e) {
-//     XiVecMap map(v.data(), v.size());
-//     e = map;
-// }
-
-// inline void eigenToVector(XVec &e, std::vector<double> &v) {
-//     v.reserve(e.size());
-//     v.assign(e.data(), e.data()+e.size());
-// }
-
-// inline void eigenToVector(XiVec &e, std::vector<int> &v) {
-//     v.reserve(e.size());
-//     v.assign(e.data(), e.data()+e.size());
-// }
-
-// inline void eigenMatToVector(XMat &e, std::vector<std::vector<double> > &v) {
-        
-//     v.resize(e.rows());
-//     for(int i = 0; i < e.rows(); i++) {
-//         XVec tmp = e.row(i);
-//         eigenToVector(tmp, v[i]);
-//     }  
-// }
-
-// inline void insert_sparse_block(SMat &block, int row_offset, int col_offset, std::vector<int> &rows, 
-//                                 std::vector<int> &cols, std::vector<double> &vals) {
-//     for (int k = 0; k < block.outerSize(); k++) {
-//         for (SMat::InnerIterator it(block,k); it; ++it) {
-//             rows.push_back(row_offset+it.row());
-//             cols.push_back(col_offset+it.col());
-//             vals.push_back(it.value());
-//         }
-//     } 
-// }
 
 #endif // UTIL

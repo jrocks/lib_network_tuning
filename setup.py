@@ -2,8 +2,14 @@ from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 import sys
 import setuptools
+import pathlib
 
 __version__ = '0.0.1'
+
+
+# Touch source file to force recompile
+pathlib.Path('cpp_src/python_bindings.cpp').touch()
+
 
 class get_pybind_include(object):
     """Helper class to determine the pybind11 include path
@@ -18,17 +24,61 @@ class get_pybind_include(object):
         import pybind11
         return pybind11.get_include(self.user)
 
+use_cplex_solver = False
+use_alglib_tuner = False
+    
+include_dirs=[
+    # Path to pybind11 headers
+    get_pybind_include(),
+    get_pybind_include(user=True)
+]
+libraries = ["m", "cholmod", "umfpack"]
+library_dirs = []
+define_macros = []
+# This option ensures that all linked shared libraries actually exist
+extra_link_args = ["-Wl,--no-undefined"]
+    
+if use_cplex_solver:
+    CPLEX_path = "/opt/ibm/ILOG/CPLEX_Studio128"
+    
+    include_dirs.append(CPLEX_path+"/concert/include")
+    include_dirs.append(CPLEX_path+"/cplex/include") 
+    
+    library_dirs.append(CPLEX_path+"/concert/lib/x86-64_linux/static_pic")
+    library_dirs.append(CPLEX_path+"/cplex/lib/x86-64_linux/static_pic")
+    
+    
+    # The order of these libraries matters
+    libraries.append("concert")
+    libraries.append("ilocplex")
+    libraries.append("cplex")
+    # libraries.append("pthread")
+    libraries.append("dl")
+    
+    define_macros.append(("IL_STD", None))
+    define_macros.append(("USECPLEX", None))
+    
+if use_alglib_tuner:
+    ALGLIB_path = "/home/rocks"
+    
+    include_dirs.append(ALGLIB_path+"/alglib/include")
+    
+    library_dirs.append(ALGLIB_path+"/alglib/lib")
+    
+    libraries.append("alglib")
+    
+    define_macros.append(("USEALGLIB", None))
 
+    
 ext_modules = [
     Extension(
         'network_solver',
         ['cpp_src/python_bindings.cpp'],
-        include_dirs=[
-            # Path to pybind11 headers
-            get_pybind_include(),
-            get_pybind_include(user=True)            
-        ],
-        libraries=["m", "cholmod", "umfpack"],
+        include_dirs=include_dirs,
+        library_dirs=library_dirs,
+        libraries=libraries,
+        define_macros=define_macros,
+        extra_link_args=extra_link_args,
         language='c++'
     ),
 ]

@@ -30,6 +30,8 @@ class LinSolverResult {
     
         XVec meas;
     
+        XMat meas_grad;
+    
         LinSolverResult(int NF) {
             this->NF = NF;
             disp.resize(NF);
