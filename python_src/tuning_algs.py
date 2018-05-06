@@ -96,13 +96,13 @@ def tune_cont_lin(solver, obj_func, K_init, K_min, K_max, tol=1e-8, verbose=True
 
  
     
-def tune_disc_lin_greedy(solver, obj_func, K_max, K_disc, K_fix = set(), NDISC=1, NCONVERGE=1, tol=1e-8, verbose=True):
+def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, K_fix = set(), NDISC=1, NCONVERGE=1, tol=1e-8, verbose=True):
                 
     #Set initial response ratio
-    K_disc_curr = np.copy(K_disc)
-    K_curr = K_max * K_disc_curr / NDISC
+    K_disc_curr = np.copy(K_disc_init)
+    K_curr = (K_max-K_min) * K_disc_curr / NDISC + K_min
     solver.setK(K_curr)
-    
+        
     state = solver.getSolverState()
     
     result = solver.solve(state)
@@ -134,12 +134,12 @@ def tune_disc_lin_greedy(solver, obj_func, K_max, K_disc, K_fix = set(), NDISC=1
             continue
         
         if K_disc_curr[b] == NDISC: 
-            move_list[b].append(ns.LinUpdate(1, [b], np.array([-K_max[b] / NDISC])))
+            move_list[b].append(ns.LinUpdate(1, [b], np.array([-(K_max[b]-K_min[b]) / NDISC])))
         elif K_disc_curr[b] == 0:
-            move_list[b].append(ns.LinUpdate(1, [b], np.array([K_max[b] / NDISC])))
+            move_list[b].append(ns.LinUpdate(1, [b], np.array([(K_max[b]-K_min[b]) / NDISC])))
         else:
-            move_list[b].append(ns.LinUpdate(1, [b], np.array([-K_max[b] / NDISC])))
-            move_list[b].append(ns.LinUpdate(1, [b], np.array([K_max[b] / NDISC])))
+            move_list[b].append(ns.LinUpdate(1, [b], np.array([-(K_max[b]-K_min[b]) / NDISC])))
+            move_list[b].append(ns.LinUpdate(1, [b], np.array([(K_max[b]-K_min[b]) / NDISC])))
         
     n_iter = 0
     converge_count = 0
@@ -205,9 +205,10 @@ def tune_disc_lin_greedy(solver, obj_func, K_max, K_disc, K_fix = set(), NDISC=1
         if verbose:
             # print(min_move.dK_edges, min_move.dK)
             print("Meas", meas_list[index])
-
-        K_disc_curr[min_move.dK_edges] += int(min_move.dK / K_max[min_move.dK_edges])
-        K_curr = K_max * K_disc_curr / NDISC
+            
+        K_disc_curr[min_move.dK_edges] += int(np.rint(min_move.dK / (K_max[min_move.dK_edges]-K_min[min_move.dK_edges]) * NDISC))
+              
+        K_curr = (K_max-K_min) * K_disc_curr / NDISC  + K_min
         
         if verbose:
             print(n_iter, ":", "Move", min_move.dK_edges, min_move.dK)
@@ -233,19 +234,18 @@ def tune_disc_lin_greedy(solver, obj_func, K_max, K_disc, K_fix = set(), NDISC=1
         bond = min_move.dK_edges[0]
         move_list[bond] = []
         if K_disc_curr[bond] == NDISC: 
-            move_list[bond].append(ns.LinUpdate(1, [bond], np.array([-K_max[bond] / NDISC])))
+            move_list[bond].append(ns.LinUpdate(1, [bond], np.array([-(K_max[bond]-K_min[bond]) / NDISC])))
         elif K_disc_curr[bond] == 0:
-            move_list[bond].append(ns.LinUpdate(1, [bond], np.array([K_max[bond] / NDISC])))
+            move_list[bond].append(ns.LinUpdate(1, [bond], np.array([(K_max[bond]-K_min[bond]) / NDISC])))
         else:
-            move_list[bond].append(ns.LinUpdate(1, [bond], np.array([-K_max[bond] / NDISC])))
-            move_list[bond].append(ns.LinUpdate(1, [bond], np.array([K_max[bond] / NDISC])))
+            move_list[bond].append(ns.LinUpdate(1, [bond], np.array([-(K_max[bond]-K_min[bond]) / NDISC])))
+            move_list[bond].append(ns.LinUpdate(1, [bond], np.array([(K_max[bond]-K_min[bond]) / NDISC])))
 
         n_iter += 1            
             
     obj = obj_prev
     K = K_prev
-    
-    
+        
     solver.setK(K)
     result = solver.solve()
     solver.computeMeas(result)

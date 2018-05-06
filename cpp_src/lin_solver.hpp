@@ -169,6 +169,9 @@ class LinSolver {
     
         // Assemble vector of measurements for objective function
         bool computeMeas(LinSolverResult &result); 
+    
+    
+        SMat getHessian();
         
 };
 
@@ -1106,7 +1109,12 @@ void LinSolver<DIM>::setupHessian() {
 }
 
 
-
+template<int DIM>
+SMat LinSolver<DIM>::getHessian() {
+    
+    return Q.block(0, 0, NNDOF, nw.NE) * K.asDiagonal() * Q.block(0, 0, NNDOF, nw.NE).transpose();
+    
+}
 
 
 
