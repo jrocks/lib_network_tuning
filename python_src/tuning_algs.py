@@ -96,7 +96,7 @@ def tune_cont_lin(solver, obj_func, K_init, K_min, K_max, tol=1e-8, verbose=True
 
  
     
-def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, K_fix = set(), NDISC=1, NCONVERGE=1, tol=1e-8, verbose=True):
+def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, K_fix = set(), NDISC=1, NCONVERGE=1, tol=1e-8, verbose=True, offset=True):
                 
     #Set initial response ratio
     K_disc_curr = np.copy(K_disc_init)
@@ -114,7 +114,8 @@ def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, K_fix = se
         print("Initial meas:")
         print(meas_init)
 
-    obj_func.setOffset(meas_init)
+    if offset:
+        obj_func.setOffset(meas_init)
     
     # Calculate initial response
     obj_prev = obj_func.evalFunc(meas_init)
