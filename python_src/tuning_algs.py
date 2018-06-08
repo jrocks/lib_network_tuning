@@ -149,7 +149,8 @@ def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, K_fix = se
     
     while True:
 
-        if obj_curr == 0.0:
+#         if obj_curr == 0.0:
+        if obj_curr <= tol:
             break
 
         obj_list = []
@@ -188,7 +189,8 @@ def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, K_fix = se
 
         min_list = []
         for i in range(len(obj_list)):
-            if obj_list[args[i]] == 0.0:
+#             if obj_list[args[i]] == 0.0:
+            if obj_list[args[i]] < tol:
                 min_list.append(args[i])
             else:
                 break
@@ -283,7 +285,8 @@ def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, K_fix = se
     # data['obj_res'] = res
     data['moves'] = executed_moves
 
-    if obj == 0.0:
+    if obj < tol:
+#     if obj == 0.0:
         data['success_flag'] = 0
         data['result_msg'] = "Valid solution found."
     else:
