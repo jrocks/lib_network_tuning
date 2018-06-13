@@ -10,7 +10,18 @@ import matplotlib.colors as mcolors
 from matplotlib import collections as mc
 import matplotlib as mpl
 import seaborn as sns
+import scipy.spatial as spatial
 
+import sys
+sys.path.insert(0, '../../lib_network_tuning/')
+sys.path.insert(0, '../../lib_network_tuning/python_src/')
+
+import network_solver as ns
+
+
+
+
+    
 
 def createGIF(iname, oname, show=True, delay=5):
         
@@ -28,6 +39,36 @@ def createGIF(iname, oname, show=True, delay=5):
 gray = "#969696"
 blue = "#377eb8"
 red = "#e41a1c"
+
+
+def lighten_color(color, amount=0.5):
+    """
+    Lightens the given color by multiplying (1-luminosity) by the given amount.
+    Input can be matplotlib color string, hex string, or RGB tuple.
+
+    Examples:
+    >> lighten_color('g', 0.3)
+    >> lighten_color('#F034A3', 0.6)
+    >> lighten_color((.3,.55,.1), 0.5)
+    """
+    import matplotlib.colors as mc
+    import colorsys
+    try:
+        c = mc.cnames[color]
+    except:
+        c = color
+    c = colorsys.rgb_to_hls(*mc.to_rgb(c))
+    return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])
+
+
+
+def is_in_bounds(pos_list, left, right, lower, upper):
+        
+    for pos in pos_list:
+        if pos[0] > left and pos[0] < right and pos[1] > lower and pos[1] < upper:
+            return True
+        
+    return False
 
 
 def show_network(ax, net, disp=None, strain=None, styles={}, box_mult=1.0, periodic=True, oriented=False, alpha=0.75):
@@ -76,6 +117,11 @@ def show_network(ax, net, disp=None, strain=None, styles={}, box_mult=1.0, perio
     
     L += 2.0 * padding * L
     
+    left = -box_mult*boxsize*1.05
+    right = box_mult*boxsize*1.05
+    lower = -box_mult*boxsize*1.05
+    upper = box_mult*boxsize*1.05
+    
     edges = []
     edge_index = []
     
@@ -95,35 +141,53 @@ def show_network(ax, net, disp=None, strain=None, styles={}, box_mult=1.0, perio
         posi -= center
         posj -= center
         
+        pos_list = [tuple(posi),tuple(posi+bvec)]
         
-        edges.append([tuple(posi),tuple(posi+bvec)])    
-        edge_index.append(i)
+        if is_in_bounds(pos_list, left, right, lower, upper):
+            edges.append(pos_list)    
+            edge_index.append(i)
         
         if periodic:
-        
-            edges.append([tuple(posi+np.array([1.0, 0.0])),tuple(posi+bvec+np.array([1.0, 0.0]))])    
-            edge_index.append(i)
+            
+            pos_list = [tuple(posi+np.array([1.0, 0.0])),tuple(posi+bvec+np.array([1.0, 0.0]))]
+            if is_in_bounds(pos_list, left, right, lower, upper):
+                edges.append(pos_list)    
+                edge_index.append(i)
+                
+            pos_list = [tuple(posi+np.array([1.0, -1.0])),tuple(posi+bvec+np.array([1.0, -1.0]))]
+            if is_in_bounds(pos_list, left, right, lower, upper):
+                edges.append(pos_list)    
+                edge_index.append(i)
 
-            edges.append([tuple(posi+np.array([1.0, -1.0])),tuple(posi+bvec+np.array([1.0, -1.0]))])    
-            edge_index.append(i)
+            pos_list = [tuple(posi+np.array([0.0, -1.0])),tuple(posi+bvec+np.array([0.0, -1.0]))]
+            if is_in_bounds(pos_list, left, right, lower, upper):
+                edges.append(pos_list)    
+                edge_index.append(i)
 
-            edges.append([tuple(posi+np.array([0.0, -1.0])),tuple(posi+bvec+np.array([0.0, -1.0]))])    
-            edge_index.append(i)
+            pos_list = [tuple(posi+np.array([-1.0, -1.0])),tuple(posi+bvec+np.array([-1.0, -1.0]))]
+            if is_in_bounds(pos_list, left, right, lower, upper):
+                edges.append(pos_list)    
+                edge_index.append(i)
 
-            edges.append([tuple(posi+np.array([-1.0, -1.0])),tuple(posi+bvec+np.array([-1.0, -1.0]))])    
-            edge_index.append(i)
-
-            edges.append([tuple(posi+np.array([-1.0, 0.0])),tuple(posi+bvec+np.array([-1.0, 0.0]))])    
-            edge_index.append(i)
-
-            edges.append([tuple(posi+np.array([-1.0, 1.0])),tuple(posi+bvec+np.array([-1.0, 1.0]))])    
-            edge_index.append(i)
-
-            edges.append([tuple(posi+np.array([0.0, 1.0])),tuple(posi+bvec+np.array([0.0, 1.0]))])    
-            edge_index.append(i)
-
-            edges.append([tuple(posi+np.array([1.0, 1.0])),tuple(posi+bvec+np.array([1.0, 1.0]))])    
-            edge_index.append(i)
+            pos_list = [tuple(posi+np.array([-1.0, 0.0])),tuple(posi+bvec+np.array([-1.0, 0.0]))]
+            if is_in_bounds(pos_list, left, right, lower, upper):
+                edges.append(pos_list)    
+                edge_index.append(i)
+                
+            pos_list = [tuple(posi+np.array([-1.0, 1.0])),tuple(posi+bvec+np.array([-1.0, 1.0]))]
+            if is_in_bounds(pos_list, left, right, lower, upper):
+                edges.append(pos_list)    
+                edge_index.append(i)
+                
+            pos_list = [tuple(posi+np.array([0.0, 1.0])),tuple(posi+bvec+np.array([0.0, 1.0]))]
+            if is_in_bounds(pos_list, left, right, lower, upper):
+                edges.append(pos_list)    
+                edge_index.append(i)
+                
+            pos_list = [tuple(posi+np.array([1.0, 1.0])),tuple(posi+bvec+np.array([1.0, 1.0]))]
+            if is_in_bounds(pos_list, left, right, lower, upper):
+                edges.append(pos_list)    
+                edge_index.append(i)
 
 
     for i, b in enumerate(edges):
@@ -252,6 +316,7 @@ def show_oriented_nodes(ax, net, nodes, orientation, styles={}, shadow=False):
         if shadow:
             ax.scatter(x, y, marker=(3, 0, angle), s=1.25*size, facecolor='#636363', alpha=0.5)
             
+            
         ax.scatter(x, y, marker=(3, 0, angle), s=size, facecolor=color, alpha=1.0)
     
     
@@ -311,7 +376,7 @@ def show_nodes(ax, net, nodes, disp=None, strain=None, styles={}, marker='o', sh
     if shadow:
         ax.scatter(np.array(x1)+np.full_like(x1, shadow_offset[0]), np.array(y1)+np.full_like(y1, shadow_offset[1]), marker=marker , s=1.25*np.array(sizes), facecolor='#636363', alpha=0.5)
     
-    ax.scatter(x1, y1, marker=marker , s=sizes, facecolor=colors, alpha=1.0)
+    ax.scatter(x1, y1, marker=marker , s=sizes, facecolor=colors, alpha=1.0, linewidths=0.0)
 
 def show_vecs(ax, net, u, strain=None, stream=False):
     
@@ -504,7 +569,7 @@ def show_corners(ax, net, corners, styles={}, radius=0.5, periodic=False):
         
         
         
-def show_facets(ax, net, facets, styles={}, periodic=False):
+def show_facets(ax, net, facets, styles={}, periodic=False, alpha=1.0):
     
     DIM = net.dim
     
@@ -512,7 +577,11 @@ def show_facets(ax, net, facets, styles={}, periodic=False):
     
     patches_to_facets = []
     patches = []
-    colors = ['white' for i in range(len(facets))]
+    
+    left = -0.5*1.05
+    right = 0.5*1.05
+    lower = -0.5*1.05
+    upper = 0.5*1.05
     
     patch_index = 0
     for fi, facet in enumerate(facets):
@@ -531,64 +600,73 @@ def show_facets(ax, net, facets, styles={}, periodic=False):
             corners[j] = posi - np.floor(posi) - center + bvec
 
             posj = posi
-
-        patches.append(mpatches.Polygon(corners))
-        
-        patches_to_facets.append(fi)
+            
+            
+        if is_in_bounds(corners.tolist(), left, right, lower, upper):
+            patches.append(mpatches.Polygon(corners))
+            patches_to_facets.append(fi)
         
         if periodic:
             cornersN = np.copy(corners)
             cornersN[:, 1] += 1
             
-            patches.append(mpatches.Polygon(cornersN))
-            patches_to_facets.append(fi)
+            if is_in_bounds(cornersN.tolist(), left, right, lower, upper):
+                patches.append(mpatches.Polygon(cornersN))
+                patches_to_facets.append(fi)
             
             cornersNE = np.copy(corners)
             cornersNE[:, 0] += 1
             cornersNE[:, 1] += 1
             
-            patches.append(mpatches.Polygon(cornersNE))
-            patches_to_facets.append(fi)
+            if is_in_bounds(cornersNE.tolist(), left, right, lower, upper):
+                patches.append(mpatches.Polygon(cornersNE))
+                patches_to_facets.append(fi)
             
             cornersE = np.copy(corners)
             cornersE[:, 0] += 1
             
-            patches.append(mpatches.Polygon(cornersE))
-            patches_to_facets.append(fi)
+            if is_in_bounds(cornersE.tolist(), left, right, lower, upper):
+                patches.append(mpatches.Polygon(cornersE))
+                patches_to_facets.append(fi)
             
             cornersSE = np.copy(corners)
             cornersSE[:, 0] += 1
             cornersSE[:, 1] -= 1
             
-            patches.append(mpatches.Polygon(cornersSE))
-            patches_to_facets.append(fi)
+            if is_in_bounds(cornersSE.tolist(), left, right, lower, upper):
+                patches.append(mpatches.Polygon(cornersSE))
+                patches_to_facets.append(fi)
             
             cornersS = np.copy(corners)
             cornersS[:, 1] -= 1
             
-            patches.append(mpatches.Polygon(cornersS))
-            patches_to_facets.append(fi)
+            if is_in_bounds(cornersS.tolist(), left, right, lower, upper):
+                patches.append(mpatches.Polygon(cornersS))
+                patches_to_facets.append(fi)
             
             cornersSW = np.copy(corners)
             cornersSW[:, 0] -= 1
             cornersSW[:, 1] -= 1
             
-            patches.append(mpatches.Polygon(cornersSW))
-            patches_to_facets.append(fi)
+            if is_in_bounds(cornersSW.tolist(), left, right, lower, upper):
+                patches.append(mpatches.Polygon(cornersSW))
+                patches_to_facets.append(fi)
             
             
             cornersW = np.copy(corners)
             cornersW[:, 0] -= 1
             
-            patches.append(mpatches.Polygon(cornersW))
-            patches_to_facets.append(fi)
+            if is_in_bounds(cornersW.tolist(), left, right, lower, upper):
+                patches.append(mpatches.Polygon(cornersW))
+                patches_to_facets.append(fi)
             
             cornersNW = np.copy(corners)
             cornersNW[:, 0] -= 1
             cornersNW[:, 1] += 1
             
-            patches.append(mpatches.Polygon(cornersNW))
-            patches_to_facets.append(fi)
+            if is_in_bounds(cornersNW.tolist(), left, right, lower, upper):
+                patches.append(mpatches.Polygon(cornersNW))
+                patches_to_facets.append(fi)
             
         
     colors = []
@@ -599,12 +677,53 @@ def show_facets(ax, net, facets, styles={}, periodic=False):
         else:
             colors.append('w')
             
-            
-    pc = mc.PatchCollection(patches, color=colors, zorder=-2)
+        
+    pc = mc.PatchCollection(patches, color=colors, zorder=-2, alpha=alpha)
     ax.add_collection(pc)
         
         
         
+def show_voronoi(ax, net, verts, styles={}, periodic=False):
+    
+    
+    L = net.L    
+    vert_pos = np.vstack([net.node_pos.reshape((net.NN, 2))]*9)
+    
+    vert_pos[net.NN:2*net.NN, :] += np.array([L[0], 0.0])
+    vert_pos[2*net.NN:3*net.NN, :] += L
+    vert_pos[3*net.NN:4*net.NN, :] += np.array([0.0, L[1]])
+    vert_pos[4*net.NN:5*net.NN, :] += np.array([-L[0], L[1]])
+    vert_pos[5*net.NN:6*net.NN, :] += np.array([-L[0], 0.0])
+    vert_pos[6*net.NN:7*net.NN, :] += np.array([-L[0], -L[1]])
+    vert_pos[7*net.NN:8*net.NN, :] += np.array([0.0, -L[1]])
+    vert_pos[8*net.NN:9*net.NN, :] += np.array([L[0], -L[1]])
+        
+    vor = spatial.Voronoi(vert_pos)
+    
+      
+#     fig = spatial.voronoi_plot_2d(vor, ax=ax, point_size=3, show_vertices=False)
+#     plt.show()
+    
+    vor_net = ns.Network2D(vor.vertices.shape[0], vor.vertices.flatten(), 0, [], [], net.L)
+    
+    facets = []
+    facet_styles = {}
+    fi = 0
+    for vi in verts:
+        region = vor.regions[vor.point_region[vi]]
+
+        facet = {}
+        facet['nodes'] = region
+
+        facets.append(facet)
+        if vi in styles:
+            facet_styles[fi] = styles[vi]
+        
+        fi += 1    
+    
+    show_facets(ax, vor_net, facets, styles=facet_styles, periodic=periodic, alpha=1.0)
+    
+    
 
 def frame(network, disp, Gamma, K, pert, meas, label, boxsize=0.5, padding=0.0, save=False, show_removed=False, ostrain=[]):
 

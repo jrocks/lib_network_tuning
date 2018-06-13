@@ -255,9 +255,9 @@ def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, K_fix = se
     meas_final = np.array(result.meas)
     obj_real = obj_func.evalFunc(meas_final)
     
-    if verbose:   
-        evals = sparsela.eigsh(solver.H, k=16, return_eigenvectors=False, which='SM')
-        print(evals)
+#     if verbose:   
+#         evals = sparsela.eigsh(solver.H, k=16, return_eigenvectors=False, which='SM')
+#         print(evals)
 
     # res = self.obj_func.projMeas(meas)
     if verbose:
