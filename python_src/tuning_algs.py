@@ -170,7 +170,7 @@ def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, K_fix = se
             solver.computeMeas(result)
             meas = np.array(result.meas)
             obj = obj_func.evalFunc(meas)
-            
+                        
             obj_list.append(obj)
             valid_move_list.append(up)
             meas_list.append(meas)
