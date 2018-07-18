@@ -15,7 +15,7 @@ class LinSolverState {
     
         bool hess_update;
         // Updated vector of interaction strengths
-        XVec K;
+        SMat dK;
         // Cumulative change in Hessian
         SMat dH;
         // Cumulative change in inverse Hessian
