@@ -107,6 +107,7 @@ template <int DIM> void init(py::module &m) {
         .def("setK", &LinSolver<DIM>::setK)
         .def("setAllowZero", &LinSolver<DIM>::setAllowZero)
         .def("getHessian", &LinSolver<DIM>::getHessian)
+        .def("getBorderedHessian", &LinSolver<DIM>::getBorderedHessian)
         .def_readonly("dim", &LinSolver<DIM>::dim)
         .def_readonly("tol", &LinSolver<DIM>::tol)
         .def_readonly("nw", &LinSolver<DIM>::nw)

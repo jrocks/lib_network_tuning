@@ -174,6 +174,7 @@ class LinSolver {
     
     
         SMat getHessian();
+        SMat getBorderedHessian();
         
 };
 
@@ -1123,6 +1124,13 @@ template<int DIM>
 SMat LinSolver<DIM>::getHessian() {
     
     return Q.block(0, 0, NNDOF, nw.NE) * K.asDiagonal() * Q.block(0, 0, NNDOF, nw.NE).transpose();
+    
+}
+
+template<int DIM>
+SMat LinSolver<DIM>::getBorderedHessian() {
+    
+    return Q * (K.asDiagonal() * Q.transpose()) + G;
     
 }
 
