@@ -207,7 +207,7 @@ PYBIND11_MODULE(network_solver, m) {
     py::class_<LinSolverState>(m, "LinSolverState")
         .def(py::init<int>())
         .def_readonly("hess_update", &LinSolverState::hess_update)
-        .def_readonly("K", &LinSolverState::K)
+        .def_readonly("dK", &LinSolverState::dK)
         .def_readonly("dH", &LinSolverState::dH)
         .def_readonly("dHi", &LinSolverState::dHi)
         .def_readonly("HiC1", &LinSolverState::HiC1)

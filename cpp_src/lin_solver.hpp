@@ -8,6 +8,8 @@
 #include "lin_solver_state.hpp"
 #include "lin_solver_result.hpp"    
   
+#include <pybind11/pybind11.h>
+namespace py = pybind11;
     
 class LinUpdate {
     public:
@@ -135,9 +137,9 @@ class LinSolver {
         // Compute update to solver and save if needed
         bool computeInvUpdate(LinUpdate &up, LinSolverState &state1, LinSolverState &state2, bool save, LinSolverResult &result);
         // Extract results from solver solutions
-        bool computeResult(std::vector<XVec > &u, std::vector<XVec > &lamb, LinSolverResult &result);
+        bool computeResult(LinSolverState &state, std::vector<XVec > &u, std::vector<XVec > &lamb, LinSolverResult &result);
         // Extract results from solver solutions, including changes in spring constants from update
-        bool computeResult(std::vector<XVec > &u, std::vector<XVec > &lamb, LinUpdate &up, LinSolverResult &result);
+        bool computeResult(LinSolverState &state, std::vector<XVec > &u, std::vector<XVec > &lamb, LinUpdate &up, LinSolverResult &result);
             
     public:
         
@@ -422,18 +424,21 @@ bool LinSolver<DIM>::computeInvUpdate(LinUpdate &up, LinSolverState &state1, Lin
         } 
     }
     
+    state2.dK = state1.dK;
+    
     if(save) {
         if(!state2.hess_update) {
             state2.hess_update = true;
-            state2.K = K;
+            state2.dK.resize(nw.NE, 1);
             state2.dH.resize(NDOF, NDOF);
             state2.dHi = XMat::Zero(NDOF, NDOF);
         }
   
         for(int i = 0; i < up.NdK; i++) {
-            state2.K(up.dK_edges[i]) += up.dK(i);
+            state2.dK.coeffRef(up.dK_edges[i], 0) += up.dK(i);
         }
-        
+        state2.dK.makeCompressed();
+                
         state2.dH += U * (up.dK.asDiagonal() * U.transpose());
         state2.dHi += - HiU * up.dK.asDiagonal() * Ai * HiU.transpose();
                 
@@ -445,7 +450,7 @@ bool LinSolver<DIM>::computeInvUpdate(LinUpdate &up, LinSolverState &state1, Lin
 
 
 template<int DIM>
-bool LinSolver<DIM>::computeResult(std::vector<XVec > &u, std::vector<XVec > &lamb, LinUpdate &up, LinSolverResult &result) {
+bool LinSolver<DIM>::computeResult(LinSolverState &state, std::vector<XVec > &u, std::vector<XVec > &lamb, LinUpdate &up, LinSolverResult &result) {
         
     for(int t = 0; t < NF; t++ ) {
         
@@ -471,10 +476,15 @@ bool LinSolver<DIM>::computeResult(std::vector<XVec > &u, std::vector<XVec > &la
             result.affine_strain[t] = m.segment(offset, DIM*(DIM+1)/2);
             offset += DIM*(DIM+1)/2;
         }
+                
+        XVec updated_K = K;
+        if(state.dK.nonZeros() > 0) {
+            updated_K += state.dK.col(0);
+        }
         
         std::unordered_map<int,double> K_map;
         for(int i = 0; i < meas[t].N_ostress; i++) {
-            K_map.emplace(meas[t].ostress_edges[i], K(meas[t].ostress_edges[i]));
+            K_map.emplace(meas[t].ostress_edges[i], updated_K(meas[t].ostress_edges[i]));
         }
         
         for(int i = 0; i < up.NdK; i++) {
@@ -502,10 +512,10 @@ bool LinSolver<DIM>::computeResult(std::vector<XVec > &u, std::vector<XVec > &la
 }
 
 template<int DIM>
-bool LinSolver<DIM>::computeResult(std::vector<XVec > &u, std::vector<XVec > &lamb, LinSolverResult &result) {
+bool LinSolver<DIM>::computeResult(LinSolverState &state, std::vector<XVec > &u, std::vector<XVec > &lamb, LinSolverResult &result) {
         
     LinUpdate up;
-    return computeResult(u, lamb, up, result);
+    return computeResult(state, u, lamb, up, result);
     
 }
 
@@ -561,7 +571,7 @@ LinSolverResult LinSolver<DIM>::solve() {
         return result;
     }
         
-    if(!computeResult(u, lamb, result)) {
+    if(!computeResult(state, u, lamb, result)) {
         return result;
     }
     
@@ -583,7 +593,7 @@ LinSolverResult LinSolver<DIM>::solve(LinSolverState &state) {
         return result;
     }
     
-    if(!computeResult(u, lamb, result)) {
+    if(!computeResult(state, u, lamb, result)) {
         return result;
     }
     
@@ -614,7 +624,7 @@ LinSolverResult LinSolver<DIM>::solve(LinUpdate &up) {
         return result;
     }
     
-    if(!computeResult(u, lamb, up, result)) {
+    if(!computeResult(state, u, lamb, up, result)) {
         return result;
     }
     
@@ -641,7 +651,7 @@ LinSolverResult LinSolver<DIM>::solve(LinUpdate &up, LinSolverState &state) {
         return result;
     }
     
-    if(!computeResult(u, lamb, up, result)) {
+    if(!computeResult(state2, u, lamb, up, result)) {
         return result;
     }
     
