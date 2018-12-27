@@ -66,9 +66,6 @@ XVec LeastSquaresObjFunc::evalRes(RXVec& m) {
         res -= offset;
     }
     
-    if(use_norm) {
-        res = res.cwiseQuotient(norm);
-    }
     
     res -= target;
     
@@ -78,6 +75,10 @@ XVec LeastSquaresObjFunc::evalRes(RXVec& m) {
                 res(i) = 0.0;
             }
         } 
+    }
+    
+    if(use_norm) {
+        res = res.cwiseQuotient(norm);
     }
     
     return res;
@@ -100,9 +101,6 @@ XMat LeastSquaresObjFunc::evalResGrad(RXVec& m, RXMat& mgrad) {
         res -= offset;
     }
     
-    if(use_norm) {
-        res = res.cwiseQuotient(norm);
-    }
     
     res -= target;
     
@@ -112,6 +110,10 @@ XMat LeastSquaresObjFunc::evalResGrad(RXVec& m, RXMat& mgrad) {
                 res(i) = 0.0;
             }
         } 
+    }
+    
+    if(use_norm) {
+        res = res.cwiseQuotient(norm);
     }
     
     XMat dresdK = XMat::Zero(mgrad.rows(), mgrad.cols());

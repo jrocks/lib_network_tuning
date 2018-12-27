@@ -77,6 +77,7 @@ template <int DIM> void init(py::module &m) {
         .def("setOutputStress", &Measure<DIM>::setOutputStress)
         .def("setOutputAffineStrain", &Measure<DIM>::setOutputAffineStrain)
         .def("setOutputAffineStress", &Measure<DIM>::setOutputAffineStress)
+        .def("setOutputLambda", &Measure<DIM>::setOutputLambda)
         .def_readonly_static("dim", &Measure<DIM>::dim)
         .def_readwrite("measure_disp", &Measure<DIM>::measure_disp)
         .def_readwrite("measure_strain", &Measure<DIM>::measure_strain)
@@ -181,6 +182,7 @@ PYBIND11_MODULE(network_solver, m) {
     // Initialize dimension dependent parts of code for each needed dimension
     init<1>(m);
     init<2>(m);
+    init<3>(m);
     
     
     py::class_<LinSolverResult>(m, "LinSolverResult")

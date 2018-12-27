@@ -505,7 +505,8 @@ bool LinSolver<DIM>::computeResult(LinSolverState &state, std::vector<XVec > &u,
         for(int i = 0; i < meas[t].N_olambda; i++) {
             olambda(i) = lamb[t](meas[t].olambdai[i]);
         }
-        
+        result.olambda[t] = olambda;
+                
     }
     
     return true;
@@ -795,11 +796,14 @@ void LinSolver<DIM>::setupPertMats() {
             
             DVec Xij = pert[t].istrain_vec.template segment<DIM>(DIM*e);
             DVec Xhatij = Xij.normalized();
+            
+            
 
             C0[t](e) = pert[t].istrain(e);
 
             // Choose between strain or extension implementation
             double l0 = pert[t].is_extension ? 1.0 :  Xij.norm();
+            
             for(int m = 0; m < DIM; m++) {
                 C1_trip_list.push_back(Trip(DIM*ei+m, e, -Xhatij(m) / l0));
                 C1_trip_list.push_back(Trip(DIM*ej+m, e, Xhatij(m) / l0));
@@ -879,8 +883,9 @@ void LinSolver<DIM>::setupPertMats() {
             // Choose between tension and stress (must convert either to a force.
             // Tension already has correct units while stress must be multiplied by a length
             double l0 = pert[t].is_tension ? 1.0 : Xij.norm();
-            double sigma = pert[t].istress(e) * l0;
+            double sigma = pert[t].istress(e) / l0;
             // Stress is actually l0*t/V where V is converts to energy density per unit volume
+            // Want to solve for t
             
             DVec force = sigma * Xhatij;
 
@@ -913,7 +918,7 @@ void LinSolver<DIM>::setupMeasMats() {
 
     for(int t = 0; t < NF; t++) {
     
-        NM[t] = meas[t].N_ostrain + meas[t].N_ostress;
+        NM[t] = meas[t].N_ostrain + meas[t].N_ostress + meas[t].N_olambda;
         int NMA = 0;
         if(meas[t].measure_affine_strain) {
             NMA = DIM*(DIM+1)/2;
@@ -933,6 +938,7 @@ void LinSolver<DIM>::setupMeasMats() {
 
             // Choose between strain or extension implementation
             double l0 = meas[t].is_extension ? 1.0 : Xij.norm();
+            
             for(int m = 0; m < DIM; m++) {
                 M_trip_list.push_back(Trip(DIM*ei+m, e, -Xhatij(m) / l0));
                 M_trip_list.push_back(Trip(DIM*ej+m, e, Xhatij(m) / l0));
@@ -971,10 +977,12 @@ void LinSolver<DIM>::setupMeasMats() {
                 - nw.node_pos.template segment<DIM>(DIM*ei);
             DVec Xhatij = Xij.normalized();
 
-            double l0 = pert[t].is_tension ? 1.0 : Xij.norm();
+            double l0 = meas[t].is_tension ? 1.0 : Xij.norm();
+            
+            
             for(int m = 0; m<DIM; m++) {
-                M_trip_list.push_back(Trip(DIM*ei+m, meas[t].N_ostrain + NMA + e, -Xhatij(m) * l0));
-                M_trip_list.push_back(Trip(DIM*ej+m, meas[t].N_ostrain + NMA + e, Xhatij(m) * l0));
+                M_trip_list.push_back(Trip(DIM*ei+m, meas[t].N_ostrain + NMA + e, -Xhatij(m) / l0));
+                M_trip_list.push_back(Trip(DIM*ej+m, meas[t].N_ostrain + NMA + e, Xhatij(m) / l0));
             }
 
             if(nw.enable_affine) {

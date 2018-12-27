@@ -7,6 +7,7 @@ import numpy as np
 import numpy.linalg as la
 import numpy.random as rand
 import scipy.sparse as sparse
+import scipy.sparse.linalg as sla
 from netCDF4 import Dataset, chartostring, stringtoarr
 import itertools as it
 import shelve
@@ -130,6 +131,7 @@ def convert_jammed_state_to_network(label, index, DIM=2):
     node_pos_tmp = np.copy(node_pos)
     edgei_tmp = np.copy(edgei)
     edgej_tmp = np.copy(edgej)
+    rad_tmp = np.copy(rad)
 
     index_map = list(range(NN))
     rattlers = set()
@@ -145,9 +147,11 @@ def convert_jammed_state_to_network(label, index, DIM=2):
 
     NN = len(index_map)
     node_pos = np.zeros(DIM*NN, float)
+    rad = np.zeros(NN)
 
     for i in range(NN):
         node_pos[DIM*i:DIM*i+DIM] = node_pos_tmp[DIM*index_map[i]:DIM*index_map[i]+DIM]
+        rad[i] = rad_tmp[index_map[i]]
 
     edgei = []
     edgej = []
@@ -171,6 +175,7 @@ def convert_jammed_state_to_network(label, index, DIM=2):
     
     net['NN'] = NN
     net['node_pos'] = node_pos
+    net['rad'] = rad
     
     net['NE'] = NE
     net['edgei'] = np.array(edgei)
@@ -192,12 +197,19 @@ def convert_to_network_object(net, periodic=True):
     DIM = net['DIM']
    
     NN = net['NN']
-    node_pos = net['node_pos']
-    L = net['box_L']
+    node_pos = np.array(net['node_pos'])
+    box_mat = net['box_mat']
     
     NE = net['NE']
     edgei = net['edgei']
     edgej = net['edgej']
+    
+    
+    for i in range(NN):
+        node_pos[DIM*i:DIM*i+DIM] = box_mat.dot(node_pos[DIM*i:DIM*i+DIM])
+        
+    
+    L = box_mat.diagonal()
     
     bvecij = np.zeros(DIM*NE, float)
     eq_length = np.zeros(NE, float)
@@ -208,7 +220,7 @@ def convert_to_network_object(net, periodic=True):
         bvecij[DIM*i:DIM*i+DIM] = bvec
         eq_length[i] = la.norm(bvec)
     
-    
+        
     if DIM == 2:
         cnet = ns.Network2D(NN, node_pos, NE, edgei, edgej, L)
     elif DIM == 3:
@@ -226,6 +238,106 @@ def convert_to_network_object(net, periodic=True):
 
 
 
+
+
+def prune_network(net, rem_nodes, rem_edges):
+    
+    DIM = net['DIM']
+   
+    NN = net['NN']
+    node_pos = net['node_pos']
+    rad = net['rad']
+    
+    NE = net['NE']
+    edgei = net['edgei']
+    edgej = net['edgej']
+    
+    if 'boundary' in net:
+        boundary = net['boundary']
+    else:
+        boundary = set()
+    
+    # map from original periodic network to current network
+    if 'node_map' in net:
+        node_map = net['node_map']
+    else:
+        node_map = {i:i for i in range(NN)}
+    
+    rem_nodes = set(rem_nodes)
+    rem_edges = set(rem_edges)
+    
+    print("Removing", len(rem_nodes), "/", NN, "nodes and", len(rem_edges), "/", NE, "edges...")
+    
+    
+    local_node_map = {}
+    
+    NN_tmp = 0
+    node_pos_tmp = []
+    boundary_tmp = set()
+    rad_tmp = []
+    for v in range(NN):
+        
+        if v not in rem_nodes:
+        
+            node_pos_tmp.extend(node_pos[DIM*v:DIM*v+DIM])
+            rad_tmp.append(rad[v])
+            
+            if v in boundary:
+                boundary_tmp.add(NN_tmp)
+                
+            local_node_map[v] = NN_tmp
+
+            NN_tmp += 1
+            
+    NE_tmp = 0
+    edgei_tmp = []
+    edgej_tmp = []
+    for e in range(NE):
+        
+        if edgei[e] not in local_node_map or edgej[e] not in local_node_map:
+            rem_edges.add(e)
+        
+        if e in rem_edges:
+            if edgei[e] in local_node_map:
+                boundary_tmp.add(local_node_map[edgei[e]])
+            if edgej[e] in local_node_map:
+                boundary_tmp.add(local_node_map[edgej[e]])
+        
+        else :
+            edgei_tmp.append(local_node_map[edgei[e]])
+            edgej_tmp.append(local_node_map[edgej[e]])
+            NE_tmp += 1
+      
+    node_map_tmp = {}
+    
+    for v in node_map:
+        if node_map[v] in local_node_map:
+            node_map_tmp[v] = local_node_map[node_map[v]]
+            
+    
+    
+    new_net = copy.deepcopy(net)
+    
+    new_net['NN'] = NN_tmp
+    new_net['node_pos'] = np.array(node_pos_tmp)
+    new_net['rad'] = np.array(rad_tmp)
+    
+    new_net['NE'] = NE_tmp
+    new_net['edgei'] = np.array(edgei_tmp)
+    new_net['edgej'] = np.array(edgej_tmp)
+    
+    new_net['boundary'] = boundary_tmp
+    new_net['node_map'] = node_map_tmp
+    
+    
+    print("Removed", NN-NN_tmp, "/", NN, "nodes and", NE-NE_tmp, "/", NE, "edges.")
+    
+    return new_net
+    
+    
+    
+
+
 def make_finite(net):
     
     
@@ -233,45 +345,25 @@ def make_finite(net):
    
     NN = net['NN']
     node_pos = net['node_pos']
-    L = net['box_L']
-    
+    box_mat = net['box_mat']
+        
     NE = net['NE']
     edgei = net['edgei']
     edgej = net['edgej']
     
-    NE_tmp = 0
-    edgei_tmp = []
-    edgej_tmp = []
-    
-    boundary = set()
+    rem_edges = set()
     
     for b in range(NE):
         posi = node_pos[DIM*edgei[b]:DIM*edgei[b]+DIM]
         posj = node_pos[DIM*edgej[b]:DIM*edgej[b]+DIM]
         
         bvec = posj-posi
-        bvec -= np.rint(bvec / L) * L
+        bvec -= np.rint(bvec)
         
-        if (posi+bvec <= L).all() and (posi+bvec >= 0.0).all():
-            NE_tmp += 1
-            edgei_tmp.append(edgei[b])
-            edgej_tmp.append(edgej[b])
-            
-        else:
-            boundary.add(edgei[b])
-            boundary.add(edgej[b])
+        if not ((posi+bvec <= 1.0).all() and (posi+bvec >= 0.0).all()):
+            rem_edges.add(b)
     
-    
-    
-    fnet = copy.deepcopy(net)
-    
-    fnet['NE'] = NE_tmp
-    fnet['edgei'] = np.array(edgei_tmp)
-    fnet['edgej'] = np.array(edgej_tmp)
-    
-    fnet['boundary'] = boundary
-    
-    return fnet
+    return prune_network(net, set(), rem_edges)
             
 
 def make_ball(net, radius, center=None):
@@ -280,7 +372,7 @@ def make_ball(net, radius, center=None):
    
     NN = net['NN']
     node_pos = net['node_pos']
-    L = net['box_L']
+    box_mat = net['box_mat']
     
     NE = net['NE']
     edgei = net['edgei']
@@ -292,76 +384,91 @@ def make_ball(net, radius, center=None):
         boundary = set()
     
     if center is None:
-        center = 0.5*L
+        center = 0.5
         
+    rem_nodes = set()      
         
-        
-    NN_tmp = 0
-    node_map = {}
-    node_pos_tmp = []
-    
     for v in range(NN):
         
         posi = node_pos[DIM*v:DIM*v+DIM]
         
         bvec = posi - center
-        bvec -= np.rint(bvec / L) * L
+        bvec -= np.rint(bvec)
         
-        if la.norm(bvec) < radius * L[0]/2.0:
-            node_map[v] = NN_tmp
-            NN_tmp += 1
-            node_pos_tmp.extend(posi)
+        if la.norm(bvec) > radius / 2.0:
+            rem_nodes.add(v)
         
-    NE_tmp = 0
-    edgei_tmp = []
-    edgej_tmp = []
-    bvecij_tmp = []
-    eq_length_tmp = []
-    K_tmp = []
     
-    boundary_tmp = set()
     
-    for b in range(NE):
-        
-        if edgei[b] in node_map and edgej[b] in node_map:
-                        
-            NE_tmp += 1
-            edgei_tmp.append(node_map[edgei[b]])
-            edgej_tmp.append(node_map[edgej[b]])
-            
-        elif edgei[b] in node_map and edgej[b] not in node_map:
-            boundary_tmp.add(node_map[edgei[b]])
-        elif edgej[b] in node_map and edgei[b] not in node_map:
-            boundary_tmp.add(node_map[edgej[b]])
-            
-            
-    for n in boundary:
-        if n in node_map:
-            boundary_tmp.add(node_map[n])
-    
-    bnet = copy.deepcopy(net)
-
-    bnet['NN'] = NN_tmp
-    bnet['node_pos'] = np.array(node_pos_tmp)
-    
-    bnet['NE'] = NE_tmp
-    bnet['edgei'] = np.array(edgei_tmp)
-    bnet['edgej'] = np.array(edgej_tmp)
-    
-    bnet['boundary'] = boundary_tmp
-    
-    return bnet
+    return prune_network(net, rem_nodes, set())
     
 
-
     
-def prune_underconstrained(net):
+def prune_zero_modes(net):
     
     DIM = net['DIM']
    
     NN = net['NN']
     node_pos = net['node_pos']
-    L = net['box_L']
+    L = net['box_mat'].diagonal()
+        
+    NE = net['NE']
+    edgei = net['edgei']
+    edgej = net['edgej']
+    
+    boundary = net['boundary']
+    node_map = net['node_map']
+    
+    pert = []
+    if DIM == 2:
+            pert.append(ns.Perturb2D())
+    elif DIM == 3:
+        pert.append(ns.Perturb3D())
+        
+    meas = []
+    if DIM == 2:
+            meas.append(ns.Measure2D())
+    elif DIM == 3:
+        meas.append(ns.Measure3D())
+
+    
+    znet = copy.deepcopy(net)
+            
+    while True:
+            
+        if DIM == 2:
+            solver = ns.LinSolver2D(convert_to_network_object(znet, periodic=False), 1, pert, meas)
+        elif DIM == 3:
+            solver = ns.LinSolver3D(convert_to_network_object(znet, periodic=False), 1, pert, meas)
+        
+        NGDOF = int(DIM*(DIM+1)/2)
+        
+        H = solver.getBorderedHessian()
+        
+        (evals, evecs) = sla.eigsh(H, k=NGDOF+16, which='SA')
+        
+        print(evals)
+        
+        print("Min eval:", evals[NGDOF])
+        
+        if evals[NGDOF] > 1e-12:
+            return znet
+        
+        irem = np.argmax(la.norm(evecs[:DIM*znet['NN'], NGDOF].reshape(znet['NN'], DIM), axis=1))
+                
+        znet = prune_network(znet, {irem}, set())
+                    
+
+    
+    
+    
+def choose_boundary_edge(net, theta, phi=0):
+    
+    DIM = net['DIM']
+   
+    NN = net['NN']
+    node_pos = net['node_pos']
+    L = net['box_mat'].diagonal()
     
     NE = net['NE']
     edgei = net['edgei']
@@ -369,9 +476,6 @@ def prune_underconstrained(net):
     
     boundary = net['boundary']
     
-    NN_tmp = 0
-    node_map = {}
-    node_pos_tmp = []
     
     Z = np.zeros(NN, float)
     
@@ -379,80 +483,7 @@ def prune_underconstrained(net):
         Z[edgei[b]] += 1
         Z[edgej[b]] += 1
     
-    for v in range(NN):
-        
-        posi = node_pos[DIM*v:DIM*v+DIM]
-        
-        if Z[v] < DIM+1:
-            continue
-            
-            
-        node_map[v] = NN_tmp
-        NN_tmp += 1
-        node_pos_tmp.extend(posi)
-
-
-    NE_tmp = 0
-    edgei_tmp = []
-    edgej_tmp = []
-    bvecij_tmp = []
-    eq_length_tmp = []
-    K_tmp = []
     
-    boundary_tmp = set()
-    
-    for b in range(NE):
-        
-        if edgei[b] in node_map and edgej[b] in node_map:
-                        
-            NE_tmp += 1
-            edgei_tmp.append(node_map[edgei[b]])
-            edgej_tmp.append(node_map[edgej[b]])
-            
-        elif edgei[b] in node_map and edgej[b] not in node_map:
-            boundary_tmp.add(node_map[edgei[b]])
-        elif edgej[b] in node_map and edgei[b] not in node_map:
-            boundary_tmp.add(node_map[edgej[b]])
-            
-            
-    for n in boundary:
-        if n in node_map:
-            boundary_tmp.add(node_map[n])
-    
-    pnet = copy.deepcopy(net)
-
-    pnet['NN'] = NN_tmp
-    pnet['node_pos'] = np.array(node_pos_tmp)
-    
-    pnet['NE'] = NE_tmp
-    pnet['edgei'] = np.array(edgei_tmp)
-    pnet['edgej'] = np.array(edgej_tmp)
-    
-    pnet['boundary'] = boundary_tmp
-    
-    print("Original N:", NN, "Pruned N:", NN_tmp)
-    
-    if NN_tmp < NN:
-        return prune_underconstrained(pnet)
-    else:
-        return pnet
-        
-    
-    
-    
-def choose_bondary_edge(net, theta, phi=0):
-    
-    DIM = net['DIM']
-   
-    NN = net['NN']
-    node_pos = net['node_pos']
-    L = net['box_L']
-    
-    NE = net['NE']
-    edgei = net['edgei']
-    edgej = net['edgej']
-    
-    boundary = net['boundary']
     
     vec = np.zeros(DIM, float)
     
@@ -470,7 +501,7 @@ def choose_bondary_edge(net, theta, phi=0):
     
     
     angles = np.zeros(len(boundary), float)
-    center = 0.5*L
+    center = 0.5
     
     boundary_edges = []
     angles = []
@@ -483,17 +514,26 @@ def choose_bondary_edge(net, theta, phi=0):
             posj = node_pos[DIM*edgej[b]:DIM*edgej[b]+DIM]
             
             bvec = posj - posi
-            bvec -= np.rint(bvec / L) * L
+            bvec -= np.rint(bvec)
             
             pos = posi + 0.5*bvec - center
             pos /= la.norm(pos)
             angles.append(np.arccos(np.dot(pos, vec)))
-            
-            
-    imin = np.argmin(angles)
-    bmin = boundary_edges[imin]
+           
+    asort = np.argsort(angles)
     
-    return (edgei[bmin], edgej[bmin])
+    for i in asort:
+        
+        b = boundary_edges[i]
+                
+        if Z[edgei[b]] >= DIM + 1 and Z[edgej[b]] >= DIM + 1:
+            bmin = boundary_edges[i]
+            break
+            
+        print("skipping", b, "Z:", Z[edgei[b]], Z[edgej[b]])
+    
+    
+    return (bmin, edgei[bmin], edgej[bmin])
 
 
 
@@ -530,7 +570,7 @@ def load_jammed_network(db_fn, index):
    
     NN = net['NN']
     node_pos = net['node_pos']
-    L = net['box_L']
+    L = net['box_mat'].diagonal()
     
     NE = net['NE']
     edgei = net['edgei']

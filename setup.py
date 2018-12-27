@@ -26,6 +26,9 @@ class get_pybind_include(object):
 
 use_cplex_solver = False
 use_alglib_tuner = False
+
+print(get_pybind_include())
+print(get_pybind_include(user=True))
     
 include_dirs=[
     # Path to pybind11 headers
@@ -36,7 +39,8 @@ libraries = ["m", "cholmod", "umfpack"]
 library_dirs = []
 define_macros = []
 # This option ensures that all linked shared libraries actually exist
-extra_link_args = ["-Wl,--no-undefined"]
+# extra_link_args = ["-Wl,--no-undefined"]
+extra_link_args = []
 extra_compile_args = ["-g0"]
 
 if use_cplex_solver:
