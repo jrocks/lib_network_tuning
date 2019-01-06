@@ -30,6 +30,8 @@ class Measure {
     
         int N_olambda;
         std::vector<int> olambdai;
+        
+        bool measure_energy;
 
         Measure() {
             measure_disp = false;
@@ -42,6 +44,7 @@ class Measure {
             measure_affine_strain = false;
             measure_affine_stress = false;
             N_olambda = 0;
+            measure_energy = false;
         };
     
         void setOutputDOF(bool measure_disp, bool measure_strain, bool measure_lamb) {
@@ -72,10 +75,14 @@ class Measure {
             this->measure_affine_stress = measure_affine_stress;
         }; 
     
-    void setOutputLambda(int N_olambda, std::vector<int> &olambdai) {
+        void setOutputLambda(int N_olambda, std::vector<int> &olambdai) {
             this->N_olambda = N_olambda;
             this->olambdai = olambdai;
         };
+        
+        void setOutputEnergy(bool measure_energy) {
+            this->measure_energy = measure_energy;
+        }
     
 };
 

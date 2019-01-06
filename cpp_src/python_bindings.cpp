@@ -78,6 +78,7 @@ template <int DIM> void init(py::module &m) {
         .def("setOutputAffineStrain", &Measure<DIM>::setOutputAffineStrain)
         .def("setOutputAffineStress", &Measure<DIM>::setOutputAffineStress)
         .def("setOutputLambda", &Measure<DIM>::setOutputLambda)
+       . def("setOutputEnergy", &Measure<DIM>::setOutputEnergy)
         .def_readonly_static("dim", &Measure<DIM>::dim)
         .def_readwrite("measure_disp", &Measure<DIM>::measure_disp)
         .def_readwrite("measure_strain", &Measure<DIM>::measure_strain)
@@ -91,7 +92,8 @@ template <int DIM> void init(py::module &m) {
         .def_readwrite("ostress_edges", &Measure<DIM>::ostress_edges)
         .def_readwrite("is_tension", &Measure<DIM>::is_tension)
         .def_readwrite("measure_affine_strain", &Measure<DIM>::measure_affine_strain)
-        .def_readwrite("measure_affine_stress", &Measure<DIM>::measure_affine_stress);
+        .def_readwrite("measure_affine_stress", &Measure<DIM>::measure_affine_stress)
+        .def_readwrite("measure_energy", &Measure<DIM>::measure_energy);
     
     py::class_<LinSolver<DIM>>(m, (std::string("LinSolver")+std::to_string(DIM)+std::string("D")).c_str())
         .def(py::init<Network<DIM> &, int, std::vector<Perturb<DIM> > &, std::vector<Measure<DIM> > &, double>(), 
@@ -197,6 +199,7 @@ PYBIND11_MODULE(network_solver, m) {
         .def_readonly("affine_strain", &LinSolverResult::affine_strain)
         .def_readonly("affine_stress", &LinSolverResult::affine_stress)
         .def_readonly("olambda", &LinSolverResult::olambda)
+        .def_readonly("energy", &LinSolverResult::energy)
         .def_readonly("meas", &LinSolverResult::meas)
         .def_readonly("meas_grad", &LinSolverResult::meas_grad)
         .def_readonly("update_det", &LinSolverResult::update_det);

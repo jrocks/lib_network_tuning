@@ -197,6 +197,7 @@ def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, meas_func=
     # data['min_eval'] = evals[3]
     data['K'] = K
     data['K_disc'] = K_disc_prev
+    data['K_init'] = (K_max-K_min) * K_disc_init / NDISC + K_min
     # data['NR'] = self.net.NE - np.sum(K_disc_prev)
     # data['DZ_final'] = 2.0 * np.sum(K_disc_prev) / self.net.NN - 2.0 * (self.net.DIM - 1.0 * self.net.DIM / self.net.NN)
     data['obj_err'] = obj - obj_real

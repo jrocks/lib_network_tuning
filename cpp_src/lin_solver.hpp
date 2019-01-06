@@ -425,8 +425,15 @@ bool LinSolver<DIM>::computeInvUpdate(LinUpdate &up, LinSolverState &state1, Lin
         } 
     }
     
-    state2.dK = state1.dK;
+    // This is a bit funky
+    // If playing with states in a weird way, then dHi may not be updated properly to reflect previous state
     
+    if(state1.hess_update) {
+        state2.dK = state1.dK;
+        state2.dH = state1.dH;
+        
+    }
+
     if(save) {
         if(!state2.hess_update) {
             state2.hess_update = true;
@@ -435,6 +442,7 @@ bool LinSolver<DIM>::computeInvUpdate(LinUpdate &up, LinSolverState &state1, Lin
             state2.dHi = XMat::Zero(NDOF, NDOF);
         }
   
+        
         for(int i = 0; i < up.NdK; i++) {
             state2.dK.coeffRef(up.dK_edges[i], 0) += up.dK(i);
         }
@@ -507,6 +515,24 @@ bool LinSolver<DIM>::computeResult(LinSolverState &state, std::vector<XVec > &u,
         }
         result.olambda[t] = olambda;
                 
+        if(meas[t].measure_energy) {
+        
+            result.energy[t] = 0.5 * u[t].transpose() * H.block(0, 0, NNDOF, NNDOF) * u[t];
+            
+            if(state.dH.nonZeros() > 0) {
+                result.energy[t] += 0.5 * u[t].transpose() * state.dH.block(0, 0, NNDOF, NNDOF) * u[t];
+            }
+            
+            SMat U(NDOF, up.NdK);
+            for(int i = 0; i < up.NdK; i++) {
+                U.col(i) = Q.col(up.dK_edges[i]);
+            }
+            
+            SMat dH = U * (up.dK.asDiagonal() * U.transpose());
+            result.energy[t] += 0.5 * u[t].transpose() * dH.block(0, 0, NNDOF, NNDOF) * u[t];            
+            
+        }
+                
     }
     
     return true;
@@ -551,6 +577,11 @@ bool LinSolver<DIM>::computeMeas(LinSolverResult &result) {
         
         result.meas.segment(index, result.olambda[t].size()) = result.olambda[t];
         index += result.olambda[t].size();
+        
+        if(meas[t].measure_energy) {
+            result.meas[index] = result.energy[t];
+            index += 1;
+        }
     }
         
     return true;
@@ -1002,6 +1033,11 @@ void LinSolver<DIM>::setupMeasMats() {
         }
         
         M[t].setFromTriplets(M_trip_list.begin(), M_trip_list.end());
+        
+        
+        if(meas[t].measure_energy) {
+            NM[t] += 1;
+        }
         
     }
     
