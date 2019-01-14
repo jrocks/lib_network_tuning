@@ -537,6 +537,65 @@ def choose_boundary_edge(net, theta, phi=0):
 
 
 
+def choose_boundary_nodes(net, theta, edge_map, phi=0):
+    
+    DIM = net['DIM']
+   
+    NN = net['NN']
+    node_pos = net['node_pos']
+    L = net['box_mat'].diagonal()
+    
+    NE = net['NE']
+    edgei = net['edgei']
+    edgej = net['edgej']
+    
+    boundary = list(net['boundary'])
+    
+    
+    vec = np.zeros(DIM, float)
+    
+    if DIM == 2:
+        theta = theta*np.pi/180
+        vec[0] = np.cos(theta)
+        vec[1] = np.sin(theta)
+    if DIM == 3:
+        theta = theta*np.pi/180
+        phi = phi * np.pi / 180
+        
+        vec[0] = np.sin(theta)*np.cos(phi)
+        vec[1] = np.sin(theta)*np.sin(phi)
+        vec[2] = np.cos(theta)
+    
+    
+    angles = np.zeros(len(boundary), float)
+    center = 0.5
+    
+    angles = []
+    for b in boundary:
+            
+            pos = node_pos[DIM*b:DIM*b+DIM] - center
+            pos -= np.rint(pos)
+            
+            pos /= la.norm(pos)
+            angles.append(np.arccos(np.dot(pos, vec)))
+           
+    asort = np.argsort(angles)
+    
+    bi = boundary[asort[0]]
+    
+    for j in asort[1:]:
+        
+        bj = boundary[j]
+        
+    
+        if tuple(sorted([bi, bj])) not in edge_map:
+            break
+        
+    
+    return (bi, bj)
+
+
+
 
 
 
