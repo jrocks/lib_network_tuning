@@ -5,7 +5,7 @@ import networkx as nx
 
     
 def closest_edge(net, pos):
-    
+        
     NE = net.NE
     L = net.L
     dim = net.dim
@@ -13,6 +13,7 @@ def closest_edge(net, pos):
     dist = np.zeros(NE, float)
     
     for i in range(NE):
+                
         bi = net.edgei[i]
         bj = net.edgej[i]
         
@@ -28,6 +29,8 @@ def closest_edge(net, pos):
         vec -= np.rint(vec / L) * L
         
         dist[i] = la.norm(vec)
+        
+        print(dist[i])
                 
     return np.argsort(dist)
         
