@@ -188,7 +188,7 @@ def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, meas_func=
         print("Final Measure:", meas_final)
 
     if verbose:
-        print("Rel Change:", (meas_final - meas_init) / meas_init)
+        print("Rel Change:", (meas_final - meas_init) / (1e-8 + meas_init))
         print("Abs Change:", meas_final - meas_init)
 
     data = dict()
