@@ -227,12 +227,6 @@ def convert_to_network_object(net, periodic=True):
         cnet = ns.Network3D(NN, node_pos, NE, edgei, edgej, L)
         
     cnet.setInteractions(bvecij, eq_length, np.ones(NE, float) / eq_length)
-    cnet.fix_trans = True
-    
-    if periodic:
-        cnet.fix_rot = False
-    else:
-        cnet.fix_rot = True
     
     return cnet
 
@@ -521,7 +515,7 @@ def choose_boundary_edge(net, theta, phi=0):
             angles.append(np.arccos(np.dot(pos, vec)))
            
     asort = np.argsort(angles)
-    
+        
     for i in asort:
         
         b = boundary_edges[i]

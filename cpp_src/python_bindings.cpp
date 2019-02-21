@@ -37,8 +37,6 @@ template <int DIM> void init(py::module &m) {
         .def_readwrite("edgej", &Network<DIM>::edgej)
         .def_readwrite("L", &Network<DIM>::L)
         .def_readwrite("enable_affine", &Network<DIM>::enable_affine)
-        .def_readwrite("fix_trans", &Network<DIM>::fix_trans)
-        .def_readwrite("fix_rot", &Network<DIM>::fix_rot)
         .def_readwrite("bvecij", &Network<DIM>::bvecij)
         .def_readwrite("eq_length", &Network<DIM>::eq_length)
         .def_readwrite("K", &Network<DIM>::K);
@@ -96,8 +94,9 @@ template <int DIM> void init(py::module &m) {
         .def_readwrite("measure_energy", &Measure<DIM>::measure_energy);
     
     py::class_<LinSolver<DIM>>(m, (std::string("LinSolver")+std::to_string(DIM)+std::string("D")).c_str())
-        .def(py::init<Network<DIM> &, int, std::vector<Perturb<DIM> > &, std::vector<Measure<DIM> > &, double>(), 
-             py::arg("nw"), py::arg("NF"), py::arg("pert"), py::arg("meas"), py::arg("tol")=1e-4)
+        .def(py::init<Network<DIM> &, int, std::vector<Perturb<DIM> > &, std::vector<Measure<DIM> > &, double, bool, bool>(), 
+             py::arg("nw"), py::arg("NF"), py::arg("pert"), py::arg("meas"), py::arg("tol")=1e-4, 
+             py::arg("fix_trans")=true, py::arg("fix_rot")=true)
         .def("solve", (LinSolverResult (LinSolver<DIM>::*)()) &LinSolver<DIM>::solve)
         .def("solve", (LinSolverResult (LinSolver<DIM>::*)(LinUpdate &)) &LinSolver<DIM>::solve)
         .def("solve", (LinSolverResult (LinSolver<DIM>::*)(LinSolverState &)) &LinSolver<DIM>::solve)
@@ -114,9 +113,12 @@ template <int DIM> void init(py::module &m) {
         .def_readonly("dim", &LinSolver<DIM>::dim)
         .def_readonly("tol", &LinSolver<DIM>::tol)
         .def_readonly("nw", &LinSolver<DIM>::nw)
+        .def_readwrite("fix_trans", &LinSolver<DIM>::fix_trans)
+        .def_readwrite("fix_rot", &LinSolver<DIM>::fix_rot)
         .def_readonly("NDOF", &LinSolver<DIM>::NDOF)
         .def_readonly("NNDOF", &LinSolver<DIM>::NNDOF)
         .def_readonly("NADOF", &LinSolver<DIM>::NADOF)
+        .def_readonly("NGDOF", &LinSolver<DIM>::NGDOF)
         .def_readonly("Q", &LinSolver<DIM>::Q)
         .def_readonly("K", &LinSolver<DIM>::K)
         .def_readonly("G", &LinSolver<DIM>::G)

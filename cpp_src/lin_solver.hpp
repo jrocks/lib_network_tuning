@@ -43,6 +43,9 @@ class LinSolver {
     
         // Network object
         Network<DIM> nw;
+        
+        // fix global modes
+        bool fix_trans, fix_rot;
     
         // Number of dof in Hessian
         int NDOF;
@@ -109,11 +112,12 @@ class LinSolver {
         std::vector<XVec > HiQ;
         // Array of booleans indicating which columns HiQ have been solved for (true indicates it already exists)
         std::vector<bool> have_HiQ;
+
     
     public:
         LinSolver(Network<DIM> &nw, int NF, 
                   std::vector<Perturb<DIM> > &pert, 
-                  std::vector<Measure<DIM> > &meas, double tol = 1e-4);
+                  std::vector<Measure<DIM> > &meas, double tol = 1e-4, bool fix_trans=true, bool fix_rot=true);
     
         // Set interaction strengths
         void setK(RXVec K);
@@ -186,7 +190,8 @@ class LinSolver {
 template<int DIM>
 LinSolver<DIM>::LinSolver(Network<DIM> &nw, int NF, 
                           std::vector<Perturb<DIM> > &pert, 
-                          std::vector<Measure<DIM> > &meas, double tol) : dim(DIM) {
+                          std::vector<Measure<DIM> > &meas, double tol, bool fix_trans, bool fix_rot) : 
+            dim(DIM), fix_trans(fix_trans), fix_rot(fix_rot) {
         
     int p = 0;
     for(int m = 0; m < DIM; m++) {
@@ -206,10 +211,10 @@ LinSolver<DIM>::LinSolver(Network<DIM> &nw, int NF,
     NADOF = nw.enable_affine ? DIM*(DIM+1)/2 : 0;
     
     NGDOF = 0;
-    if(nw.fix_trans) {
+    if(fix_trans) {
         NGDOF += DIM;
     }
-    if(nw.fix_rot) {
+    if(fix_rot) {
         NGDOF += DIM*(DIM-1) / 2;
     }
     
@@ -394,11 +399,11 @@ bool LinSolver<DIM>::computeInvUpdate(LinUpdate &up, LinSolverState &state1, Lin
     double det = A.determinant();
     
     result.update_det = det;
-        
+    
     if(fabs(det) < tol) {
         result.success = false;
         // result.msg = "det: " + std::to_string(det) + " < 1e-4";
-        // std::cout << result.msg << std::endl;
+        // std::cout << result.msg << std::endl;        
         return false;
     }
     
@@ -1090,7 +1095,7 @@ void LinSolver<DIM>::setupConMat() {
     
     int offset = NNDOF + NADOF;
     // Fix translational dofs
-    if(nw.fix_trans) {
+    if(fix_trans) {
         for(int d = 0; d < DIM; d++) {
            for(int i = d; i < NNDOF; i+=DIM) {               
                G_trip_list.push_back(Trip(i, offset+d, -1.0));
@@ -1102,7 +1107,7 @@ void LinSolver<DIM>::setupConMat() {
     }
     
     // Fix rotational dofs
-    if(nw.fix_rot) {
+    if(fix_rot) {
                 
         // center of mass
         DVec COM = DVec::Zero();

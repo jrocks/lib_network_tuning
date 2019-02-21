@@ -27,11 +27,7 @@ class Network {
         DVec L;
     
         // Enable box dofs
-        bool enable_affine;
-    
-        // fix global modes
-        bool fix_trans, fix_rot;
-    
+        bool enable_affine;    
     
         // Pairwise edge interaction parameters
         // Bond vectors
@@ -52,9 +48,7 @@ class Network {
             this->NE = NE;
             
             enable_affine = false;
-            fix_trans = true;
-            fix_rot = true;
-            
+  
             this->node_pos = node_pos;
             this->edgei = edgei;
             this->edgej = edgej;
