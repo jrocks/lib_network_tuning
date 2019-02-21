@@ -619,11 +619,17 @@ def load_jammed_network(db_fn, index):
     with shelve.open(db_fn) as db:
         net = db["{}".format(index)]
             
+            
     DIM = net['DIM']
    
     NN = net['NN']
     node_pos = net['node_pos']
-    L = net['box_mat'].diagonal()
+#     L = net['box_mat'].diagonal()
+    L = net['box_L']
+    
+#     for i in range(NN):
+#         node_pos[DIM*i:DIM*i+DIM] = L * node_pos[DIM*i:DIM*i+DIM]
+    
     
     NE = net['NE']
     edgei = net['edgei']
