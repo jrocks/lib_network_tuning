@@ -522,10 +522,13 @@ bool LinSolver<DIM>::computeResult(LinSolverState &state, std::vector<XVec > &u,
                 
         if(meas[t].measure_energy) {
         
-            result.energy[t] = 0.5 * u[t].transpose() * H.block(0, 0, NNDOF, NNDOF) * u[t];
+            result.energy[t] = 0.5 * u[t].segment(0, NNDOF).transpose() 
+                                * H.block(0, 0, NNDOF, NNDOF) * u[t].segment(0, NNDOF);
             
+           
             if(state.dH.nonZeros() > 0) {
-                result.energy[t] += 0.5 * u[t].transpose() * state.dH.block(0, 0, NNDOF, NNDOF) * u[t];
+                result.energy[t] += 0.5 * u[t].segment(0, NNDOF).transpose() 
+                                * state.dH.block(0, 0, NNDOF, NNDOF) * u[t].segment(0, NNDOF);
             }
             
             SMat U(NDOF, up.NdK);
@@ -534,7 +537,9 @@ bool LinSolver<DIM>::computeResult(LinSolverState &state, std::vector<XVec > &u,
             }
             
             SMat dH = U * (up.dK.asDiagonal() * U.transpose());
-            result.energy[t] += 0.5 * u[t].transpose() * dH.block(0, 0, NNDOF, NNDOF) * u[t];            
+            result.energy[t] += 0.5 * u[t].segment(0, NNDOF).transpose() 
+                    * dH.block(0, 0, NNDOF, NNDOF) * u[t].segment(0, NNDOF);  
+            
             
         }
                 
