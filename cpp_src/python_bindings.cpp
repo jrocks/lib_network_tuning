@@ -238,5 +238,22 @@ PYBIND11_MODULE(network_solver, m) {
         .def_readonly("offset", &LeastSquaresObjFunc::offset)
         .def_readonly("use_norm", &LeastSquaresObjFunc::use_norm)
         .def_readonly("norm", &LeastSquaresObjFunc::norm);
+    
+    
+    py::class_<InfNormObjFunc>(m, "InfNormObjFunc")
+        .def(py::init<int, RXVec>())
+        .def("setIneq", &InfNormObjFunc::setIneq)
+        .def("setOffset", &InfNormObjFunc::setOffset)
+        .def("setNorm", &InfNormObjFunc::setNorm)
+        .def("evalFunc", &InfNormObjFunc::evalFunc)
+        .def("evalRes", &InfNormObjFunc::evalRes)
+        .def_readonly("NT", &InfNormObjFunc::NT)
+        .def_readonly("target", &InfNormObjFunc::target)
+        .def_readonly("use_ineq", &InfNormObjFunc::use_ineq)
+        .def_readonly("ineq", &InfNormObjFunc::ineq)
+        .def_readonly("use_offset", &InfNormObjFunc::use_offset)
+        .def_readonly("offset", &InfNormObjFunc::offset)
+        .def_readonly("use_norm", &InfNormObjFunc::use_norm)
+        .def_readonly("norm", &InfNormObjFunc::norm);
      
 };

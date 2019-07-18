@@ -228,6 +228,8 @@ def convert_to_network_object(net, periodic=True):
         
     cnet.setInteractions(bvecij, eq_length, np.ones(NE, float) / eq_length)
     
+#     print("convert", cnet.NE)
+    
     return cnet
 
 
@@ -620,6 +622,8 @@ def load_jammed_network(db_fn, index):
         net = db["{}".format(index)]
             
             
+    
+            
     DIM = net['DIM']
    
     NN = net['NN']
@@ -651,8 +655,8 @@ def load_jammed_network(db_fn, index):
         cnet = ns.Network3D(NN, node_pos, NE, edgei, edgej, L)
         
     cnet.setInteractions(bvecij, eq_length, np.ones(NE, float) / eq_length)
-    cnet.fix_trans = True
-    cnet.fix_rot = False
+#     cnet.fix_trans = True
+#     cnet.fix_rot = False
     
     return cnet
 
@@ -682,8 +686,8 @@ def convertToFlowNetwork(net):
         
     fnet = ns.Network1D(NN, node_pos, NE, edgei, edgej, L)
     fnet.setInteractions(bvecij, eq_length, np.ones(NE, float))
-    fnet.fix_trans = True
-    fnet.fix_rot = False
+#     fnet.fix_trans = True
+#     fnet.fix_rot = False
         
     return fnet
 

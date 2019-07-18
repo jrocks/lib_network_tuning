@@ -93,6 +93,9 @@ def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, meas_func=
             valid_move_list.append(up)
             meas_list.append(meas)
             raw_meas_list.append(result.meas)
+            
+#             if n_iter == 450:
+#                 print(result.meas)
                  
                 
         if verbose:
@@ -138,8 +141,8 @@ def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, meas_func=
             print(n_iter, ":", "Move", min_move.dK_edges, min_move.dK)
             print(n_iter, ":", "Objective function:", obj_curr, "Change:", obj_curr - obj_prev, "Percent:", 100 * (obj_curr - obj_prev) / np.abs(obj_prev), "%")
                         
-#         if (obj_curr - obj_prev) / np.abs(obj_prev) > -tol:
-        if (obj_curr - obj_prev) > -1e-8:
+        if (obj_curr - obj_prev) / np.abs(obj_prev) > -tol:
+#         if (obj_curr - obj_prev) > -1e-8:
             converge_count += 1
             print("Steps Backwards", converge_count, "/", NCONVERGE)
             if converge_count >= NCONVERGE:

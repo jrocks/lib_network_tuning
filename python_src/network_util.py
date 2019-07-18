@@ -29,9 +29,24 @@ def closest_edge(net, pos):
         vec -= np.rint(vec / L) * L
         
         dist[i] = la.norm(vec)
+                        
+    return np.argsort(dist)
+
+def closest_node(net, pos):
+    
+    NN = net.NN
+    L = net.L
+    dim = net.dim
+    
+    dist = np.zeros(NN, float)
+    for i in range(NN):
+        posi = net.node_pos[dim*i:dim*i+dim]
         
-        print(dist[i])
-                
+        vec = pos - posi
+        vec -= np.rint(vec / L) * L
+        
+        dist[i] = la.norm(vec)
+        
     return np.argsort(dist)
         
     
