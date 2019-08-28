@@ -12,7 +12,7 @@ import itertools as it
 
 
 
-def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, meas_func=lambda x: x, K_fix = set(), NDISC=1, NCONVERGE=1, tol=1e-8, verbose=True, offset=True):
+def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, meas_func=lambda x: x, K_fix = set(), NDISC=1, NCONVERGE=1, tol=1e-8, stop_tol=1e-8, verbose=True, offset=True):
                 
     #Set initial response ratio
     K_disc_curr = np.copy(K_disc_init)
@@ -141,8 +141,9 @@ def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, meas_func=
             print(n_iter, ":", "Move", min_move.dK_edges, min_move.dK)
             print(n_iter, ":", "Objective function:", obj_curr, "Change:", obj_curr - obj_prev, "Percent:", 100 * (obj_curr - obj_prev) / np.abs(obj_prev), "%")
                         
-        if (obj_curr - obj_prev) / np.abs(obj_prev) > -tol:
-#         if (obj_curr - obj_prev) > -1e-8:
+
+#         if (obj_curr - obj_prev) / np.abs(obj_prev) > -tol:
+        if (obj_curr - obj_prev) > -stop_tol:
             converge_count += 1
             print("Steps Backwards", converge_count, "/", NCONVERGE)
             if converge_count >= NCONVERGE:

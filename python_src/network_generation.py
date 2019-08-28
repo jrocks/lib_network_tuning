@@ -262,7 +262,7 @@ def prune_network(net, rem_nodes, rem_edges):
     rem_nodes = set(rem_nodes)
     rem_edges = set(rem_edges)
     
-    print("Removing", len(rem_nodes), "/", NN, "nodes and", len(rem_edges), "/", NE, "edges...")
+#     print("Removing", len(rem_nodes), "/", NN, "nodes and", len(rem_edges), "/", NE, "edges...")
     
     
     local_node_map = {}
@@ -326,7 +326,7 @@ def prune_network(net, rem_nodes, rem_edges):
     new_net['node_map'] = node_map_tmp
     
     
-    print("Removed", NN-NN_tmp, "/", NN, "nodes and", NE-NE_tmp, "/", NE, "edges.")
+#     print("Removed", NN-NN_tmp, "/", NN, "nodes and", NE-NE_tmp, "/", NE, "edges.")
     
     return new_net
     
@@ -400,7 +400,7 @@ def make_ball(net, radius, center=None):
     
 
     
-def prune_zero_modes(net):
+def prune_zero_modes(net, threshold=1e-12):
     
     DIM = net['DIM']
    
@@ -443,11 +443,11 @@ def prune_zero_modes(net):
         
         (evals, evecs) = sla.eigsh(H, k=NGDOF+16, which='SA')
         
-        print(evals)
+#         print(evals)
         
         print("Min eval:", evals[NGDOF])
         
-        if evals[NGDOF] > 1e-12:
+        if evals[NGDOF] > threshold:
             return znet
         
         irem = np.argmax(la.norm(evecs[:DIM*znet['NN'], NGDOF].reshape(znet['NN'], DIM), axis=1))
