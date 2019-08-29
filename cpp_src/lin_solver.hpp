@@ -47,6 +47,8 @@ class LinSolver {
         // fix global modes
         bool fix_trans, fix_rot;
     
+        
+    
         // Number of dof in Hessian
         int NDOF;
         // Number of node dofs
@@ -66,6 +68,10 @@ class LinSolver {
     
         // Hessian matrix
         SMat H;
+        
+        // 2nd nearest neighbor interactions - mainly used for stability
+        double k2nn;
+        SMat Q2nn;
     
         // Whether to allow zero modes
         // (Only used when exactly one function
@@ -117,7 +123,7 @@ class LinSolver {
     public:
         LinSolver(Network<DIM> &nw, int NF, 
                   std::vector<Perturb<DIM> > &pert, 
-                  std::vector<Measure<DIM> > &meas, double tol = 1e-4, bool fix_trans=true, bool fix_rot=true);
+                  std::vector<Measure<DIM> > &meas, double tol = 1e-4, bool fix_trans=true, bool fix_rot=true, double k2nn = 0.0);
     
         // Set interaction strengths
         void setK(RXVec K);
@@ -195,8 +201,8 @@ class LinSolver {
 template<int DIM>
 LinSolver<DIM>::LinSolver(Network<DIM> &nw, int NF, 
                           std::vector<Perturb<DIM> > &pert, 
-                          std::vector<Measure<DIM> > &meas, double tol, bool fix_trans, bool fix_rot) : 
-            dim(DIM), fix_trans(fix_trans), fix_rot(fix_rot) {
+                          std::vector<Measure<DIM> > &meas, double tol, bool fix_trans, bool fix_rot, double k2nn) : 
+            dim(DIM), fix_trans(fix_trans), fix_rot(fix_rot), k2nn(k2nn) {
         
     int p = 0;
     for(int m = 0; m < DIM; m++) {
@@ -407,8 +413,13 @@ bool LinSolver<DIM>::computeInvUpdate(LinUpdate &up, LinSolverState &state1, Lin
     
     if(fabs(det) < tol) {
         result.success = false;
-        // result.msg = "det: " + std::to_string(det) + " < 1e-4";
-        // std::cout << result.msg << std::endl;        
+        result.msg = "det: " + std::to_string(det) + " < " + std::to_string(tol);
+//         py::print(result.msg, up.dK_edges);
+//         py::print(HiU);
+//         py::print(U);
+//         py::print(U.transpose() * HiU);
+//         py::print(up.dK.asDiagonal());
+//         py::print(up.dK.asDiagonal() * U.transpose() * HiU);
         return false;
     }
     
@@ -1245,6 +1256,67 @@ void LinSolver<DIM>::setupHessian() {
             H += C1[0].col(i) * C1[0].col(i).transpose();
         }
     }
+    
+    
+    if(k2nn > 0.0) {
+    
+        std::unordered_map<int, std::vector<int>> neigh_list;
+        for(int ei = 0; ei < nw.NE; ei++) {
+            int vi = nw.edgei[ei];
+            int vj = nw.edgej[ei];
+            neigh_list[vi].push_back(vj);
+            neigh_list[vj].push_back(vi);
+        }
+    
+    
+        std::vector<Trip> Q2nn_trip_list;
+        int N2nn = 0;
+        std::set<std::tuple<int, int> > eset;
+        for(int vi = 0; vi < nw.NN; vi++) {
+            
+            DVec Xi = nw.node_pos.template segment<DIM>(DIM*vi);
+            
+            for(int vj: neigh_list[vi]) {
+            
+                for(int vk : neigh_list[vj]) {  
+                    if(vi != vk && !eset.count(std::make_tuple(vi, vk)) && !eset.count(std::make_tuple(vk, vi))) {
+                    
+                        DVec Xk = nw.node_pos.template segment<DIM>(DIM*vk);
+                        DVec Xik =  Xk - Xi;
+                        
+                        for(int d = 0; d < DIM; d++) {
+                            if(std::fabs(Xik(d)) > 0.5*nw.L(d)) {
+                                Xik(d) -= ((Xik(d) > 0) - (Xik(d) < 0)) * nw.L(d);
+                            }
+                        }
+
+                        DVec Xhatik = Xik.normalized();
+
+                        for(int d = 0; d < DIM; d++) {
+                            Q2nn_trip_list.push_back(Trip(DIM*vi+d, N2nn, -Xhatik(d)));
+                            Q2nn_trip_list.push_back(Trip(DIM*vk+d, N2nn, Xhatik(d)));
+                        }
+                        N2nn++;
+                        
+                        eset.insert(std::make_tuple(vi, vk));
+                    } 
+                }
+            }
+            
+            // Affine interactions not implemented
+            if(nw.enable_affine) {
+                py::print("Warning: 2nd nearest neighbor interactions with affine response not implemented");
+            }
+            
+            
+        }
+        Q2nn.resize(NDOF, N2nn);
+        Q2nn.setFromTriplets(Q2nn_trip_list.begin(), Q2nn_trip_list.end());
+        
+        H += k2nn * Q2nn * Q2nn.transpose();
+        
+    }
+    
 }
 
 

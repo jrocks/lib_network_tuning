@@ -94,9 +94,9 @@ template <int DIM> void init(py::module &m) {
         .def_readwrite("measure_energy", &Measure<DIM>::measure_energy);
     
     py::class_<LinSolver<DIM>>(m, (std::string("LinSolver")+std::to_string(DIM)+std::string("D")).c_str())
-        .def(py::init<Network<DIM> &, int, std::vector<Perturb<DIM> > &, std::vector<Measure<DIM> > &, double, bool, bool>(), 
+        .def(py::init<Network<DIM> &, int, std::vector<Perturb<DIM> > &, std::vector<Measure<DIM> > &, double, bool, bool, double>(), 
              py::arg("nw"), py::arg("NF"), py::arg("pert"), py::arg("meas"), py::arg("tol")=1e-4, 
-             py::arg("fix_trans")=true, py::arg("fix_rot")=true)
+             py::arg("fix_trans")=true, py::arg("fix_rot")=true, py::arg("k2nn")=0.0)
         .def("solve", (LinSolverResult (LinSolver<DIM>::*)()) &LinSolver<DIM>::solve)
         .def("solve", (LinSolverResult (LinSolver<DIM>::*)(LinUpdate &)) &LinSolver<DIM>::solve)
         .def("solve", (LinSolverResult (LinSolver<DIM>::*)(LinSolverState &)) &LinSolver<DIM>::solve)
@@ -261,5 +261,22 @@ PYBIND11_MODULE(network_solver, m) {
         .def_readonly("offset", &InfNormObjFunc::offset)
         .def_readonly("use_norm", &InfNormObjFunc::use_norm)
         .def_readonly("norm", &InfNormObjFunc::norm);
+    
+    
+    py::class_<SumObjFunc>(m, "SumObjFunc")
+        .def(py::init<int, RXVec>())
+        .def("setIneq", &SumObjFunc::setIneq)
+        .def("setOffset", &SumObjFunc::setOffset)
+        .def("setNorm", &SumObjFunc::setNorm)
+        .def("evalFunc", &SumObjFunc::evalFunc)
+        .def("evalRes", &SumObjFunc::evalRes)
+        .def_readonly("NT", &SumObjFunc::NT)
+        .def_readonly("target", &SumObjFunc::target)
+        .def_readonly("use_ineq", &SumObjFunc::use_ineq)
+        .def_readonly("ineq", &SumObjFunc::ineq)
+        .def_readonly("use_offset", &SumObjFunc::use_offset)
+        .def_readonly("offset", &SumObjFunc::offset)
+        .def_readonly("use_norm", &SumObjFunc::use_norm)
+        .def_readonly("norm", &SumObjFunc::norm);
      
 };

@@ -12,7 +12,7 @@ import itertools as it
 
 
 
-def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, meas_func=lambda x: x, K_fix = set(), NDISC=1, NCONVERGE=1, tol=1e-8, stop_tol=1e-8, verbose=True, offset=True):
+def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, meas_func=lambda x: x, K_fix = set(), NDISC=1, NCONVERGE=1, tol=1e-8, stop_tol=1e-8, verbose=True, offset=False, stop_func=lambda x: False):
                 
     #Set initial response ratio
     K_disc_curr = np.copy(K_disc_init)
@@ -39,6 +39,7 @@ def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, meas_func=
     obj_curr = obj_prev
     K_prev = np.copy(K_curr)
     K_disc_prev = np.copy(K_disc_curr)
+    stop_curr = stop_func(meas_init)
 
     if verbose:
         print("Initial objective function:", obj_prev)
@@ -65,9 +66,12 @@ def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, meas_func=
     executed_moves = []
     
     while True:
-
-#         if obj_curr == 0.0:
-        if obj_curr <= tol:
+        
+        if tol != 'NA' and obj_curr <= tol:
+            break
+            
+            
+        if stop_curr:
             break
 
         obj_list = []
@@ -110,12 +114,13 @@ def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, meas_func=
         args = np.argsort(obj_list)   
 
         min_list = []
-        for i in range(len(obj_list)):
-#             if obj_list[args[i]] == 0.0:
-            if obj_list[args[i]] < tol:
-                min_list.append(args[i])
-            else:
-                break
+        if tol != 'NA':
+            for i in range(len(obj_list)):
+    #             if obj_list[args[i]] == 0.0:
+                if obj_list[args[i]] < tol:
+                    min_list.append(args[i])
+                else:
+                    break
 
         if len(min_list) > 0:
             
@@ -140,8 +145,10 @@ def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, meas_func=
         if verbose:
             print(n_iter, ":", "Move", min_move.dK_edges, min_move.dK)
             print(n_iter, ":", "Objective function:", obj_curr, "Change:", obj_curr - obj_prev, "Percent:", 100 * (obj_curr - obj_prev) / np.abs(obj_prev), "%")
-                        
-
+             
+                
+        stop_curr = stop_func(raw_meas_list[index])
+                
 #         if (obj_curr - obj_prev) / np.abs(obj_prev) > -tol:
         if (obj_curr - obj_prev) > -stop_tol:
             converge_count += 1
@@ -150,6 +157,7 @@ def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, meas_func=
                 if verbose:
                     print("Stopped making progress.")
                 break
+                
         else:            
             obj_prev = obj_curr
             K_prev = np.copy(K_curr)
@@ -212,7 +220,7 @@ def tune_disc_lin_greedy(solver, obj_func, K_disc_init, K_min, K_max, meas_func=
     # data['obj_res'] = res
     data['moves'] = executed_moves
 
-    if obj < tol:
+    if tol == 'NA' or obj < tol:
 #     if obj == 0.0:
         data['success_flag'] = 0
         data['result_msg'] = "Valid solution found."

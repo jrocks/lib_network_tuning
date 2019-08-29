@@ -11,6 +11,7 @@
 #include <iostream>
 #include <numeric>
 #include <unordered_map>
+#include <set>
     
 #include <Eigen/Core>
 #include <Eigen/SparseCore>
