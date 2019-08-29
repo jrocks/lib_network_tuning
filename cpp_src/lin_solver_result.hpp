@@ -31,8 +31,12 @@ class LinSolverResult {
     
     
         XVec meas;
-    
         XMat meas_grad;
+    
+        std::vector<XMat > disp_grad;
+    
+        std::vector<XVec > current;
+        std::vector<XMat > current_grad;
     
         LinSolverResult(int NF) {
             this->NF = NF;
@@ -52,6 +56,11 @@ class LinSolverResult {
             
             success = true;
             msg = "initialized";
+            
+            disp_grad.resize(NF);
+            
+            current.resize(NF);
+            current_grad.resize(NF);
         }
     
         

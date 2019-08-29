@@ -239,7 +239,9 @@ double InfNormObjFunc::evalFunc(RXVec& m) {
     
     XVec res = evalRes(m);
     
-    return res.lpNorm<Infinity>();
+    return res.lpNorm<Eigen::Infinity>();
+    
+//     return res.lpNorm<10>();
     
 }
 
