@@ -172,6 +172,11 @@ class LinSolver {
         LinSolverResult solveMeas();
         // Solve using current values of interaction strengths
         LinSolverResult solveMeasGrad();
+        // Solve using current values of interaction strengths
+        LinSolverResult solveGrad();
+        
+        LinSolverResult solveCurrent();
+        LinSolverResult solveCurrentGrad();
     
         
         // Solve and place result into solver state object
@@ -740,6 +745,75 @@ void LinSolver<DIM>::updateSolverState(LinUpdate &up, LinSolverState &state) {
 //////////////////////////////////////////////////////
 // Routines for solving for measurements and measurement gradients directly
 //////////////////////////////////////////////////////
+
+
+
+template<int DIM>
+LinSolverResult LinSolver<DIM>::solveGrad() {
+    
+    LinSolverResult result = solve();
+        
+    for(int t = 0; t < NF; t++ ) {
+    
+        result.disp_grad[t].resize(NNDOF, nw.NE);
+    
+        XMat HiQ = solver.solve(XMat(Q));
+        if (solver.info() != Eigen::Success) {
+            result.success = false;
+            result.msg = "Solving H^{-1}Q failed.";
+            std::cout << result.msg << std::endl;
+            return false;
+        }
+        
+        for(int b = 0; b < nw.NE; b++) {
+        
+        
+            double qu = (Q.block(0, b, NNDOF, 1).transpose() * result.disp[t])(0);        
+            result.disp_grad[t].col(b) = - HiQ.block(0, b, NNDOF, 1) * qu;
+
+
+        }
+
+    }
+
+    
+    return result;
+     
+}
+
+
+template<int DIM>
+LinSolverResult LinSolver<DIM>::solveCurrent() {
+
+    LinSolverResult result = solve();
+    
+    for(int t = 0; t < NF; t++ ) {
+    
+        result.current[t] = K.asDiagonal() * Q.block(0, 0, NNDOF, nw.NE).transpose() * result.disp[t];
+        
+    }
+
+    return result;
+
+}
+
+template<int DIM>
+LinSolverResult LinSolver<DIM>::solveCurrentGrad() {
+
+    LinSolverResult result = solveGrad();
+    
+    for(int t = 0; t < NF; t++ ) {
+        
+        result.current[t] = K.asDiagonal() * Q.block(0, 0, NNDOF, nw.NE).transpose() * result.disp[t];
+        
+        result.current_grad[t] = K.asDiagonal() * Q.block(0, 0, NNDOF, nw.NE).transpose() * result.disp_grad[t];        
+        result.current_grad[t] += (Q.block(0, 0, NNDOF, nw.NE).transpose() * result.disp[t]).asDiagonal();
+        
+    }
+
+    return result;
+
+}
 
 
 template<int DIM>
