@@ -441,7 +441,7 @@ def prune_zero_modes(net, threshold=1e-12):
         
         H = solver.getBorderedHessian()
         
-        (evals, evecs) = sla.eigsh(H, k=NGDOF+16, which='SA')
+        (evals, evecs) = sla.eigsh(H, k=NGDOF+32, which='SA')
         
 #         print(evals)
         
